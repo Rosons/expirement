@@ -10,6 +10,7 @@ import sql from 'highlight.js/lib/languages/sql';
 import typescript from 'highlight.js/lib/languages/typescript';
 import xml from 'highlight.js/lib/languages/xml';
 import MarkdownIt from 'markdown-it';
+import multimdTable from 'markdown-it-multimd-table';
 
 hljs.registerLanguage('bash', bash);
 hljs.registerLanguage('shell', bash);
@@ -61,7 +62,7 @@ const markdownParser = new MarkdownIt({
       return `<div class="md-code-block"><div class="md-code-block__header"><span class="md-code-block__lang">text</span><button class="md-code-block__copy" type="button">复制</button></div><pre class="hljs"><code>${escapeHtml(code)}</code></pre></div>`;
     }
   },
-});
+}).use(multimdTable);
 
 const defaultMarkdown = '...';
 const markdownDirectivePrefix = /^(include|define|ifdef|ifndef|endif|pragma|region|endregion)\b/i;
@@ -105,6 +106,6 @@ export function renderSafeMarkdown(content: string): string {
   const renderedHtml = markdownParser.render(normalizedMarkdown);
   return DOMPurify.sanitize(renderedHtml, {
     ADD_TAGS: ['button'],
-    ADD_ATTR: ['type'],
+    ADD_ATTR: ['type', 'align', 'colspan', 'rowspan', 'scope'],
   });
 }

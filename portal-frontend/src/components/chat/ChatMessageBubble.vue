@@ -394,6 +394,8 @@ function handleResendMessage(event: MouseEvent): void {
   overflow-wrap: anywhere;
   max-width: 100%;
   min-width: 0;
+  /* 宽表格横向滚动，避免撑破气泡 */
+  overflow-x: auto;
 }
 
 :deep(.markdown-body > *:first-child) {
@@ -421,6 +423,48 @@ function handleResendMessage(event: MouseEvent): void {
   border-left: 3px solid rgba(59, 130, 246, 0.5);
   background: rgba(59, 130, 246, 0.08);
   border-radius: 8px;
+}
+
+:deep(.markdown-body table) {
+  width: max-content;
+  max-width: 100%;
+  margin: 0 0 12px;
+  border-collapse: collapse;
+  font-size: 13px;
+  line-height: 1.5;
+  border: 1px solid rgba(148, 163, 184, 0.45);
+  border-radius: 10px;
+  background: rgba(255, 255, 255, 0.65);
+  overflow: hidden;
+}
+
+:deep(.markdown-body thead) {
+  background: rgba(241, 245, 249, 0.95);
+}
+
+:deep(.markdown-body th),
+:deep(.markdown-body td) {
+  border: 1px solid rgba(148, 163, 184, 0.4);
+  padding: 8px 12px;
+  vertical-align: top;
+  text-align: left;
+}
+
+:deep(.markdown-body th) {
+  font-weight: 600;
+  color: #334155;
+}
+
+:deep(.markdown-body tbody tr:nth-child(even)) {
+  background: rgba(248, 250, 252, 0.55);
+}
+
+:deep(.markdown-body caption) {
+  caption-side: bottom;
+  margin-top: 8px;
+  font-size: 12px;
+  color: #64748b;
+  text-align: left;
 }
 
 :deep(.markdown-body code) {
