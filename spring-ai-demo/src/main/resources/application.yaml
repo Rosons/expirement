@@ -1,0 +1,16 @@
+spring:
+  application:
+    name: spring-ai-demo
+
+  ai:
+    chat:
+      client:
+        enabled: false
+    openai:
+      base-url: https://dashscope.aliyuncs.com/compatible-mode
+      api-key: sk-020127f24b3742b5bb3094b98dead8bb
+      chat:
+        options:
+          model: qwen3.5-plus
+server:
+  port: 8080
