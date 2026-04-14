@@ -140,9 +140,6 @@ function getConversationTitle(chatId: string, index: number): string {
 }
 
 function getConversationSubtitle(chatId: string): string {
-  if (chatId === currentChatId.value) {
-    return '正在查看';
-  }
   return shortenChatId(chatId);
 }
 

@@ -46,6 +46,11 @@ const formattedTime = computed(() => {
   }).format(props.createdAt);
 });
 
+/** 首包未到：气泡内展示等待文案 */
+const showAssistantStreamingPlaceholder = computed(
+  () => props.role === 'assistant' && Boolean(props.streaming) && props.content.trim().length === 0,
+);
+
 async function copyCodeText(text: string): Promise<void> {
   if (!text) {
     return;
@@ -145,21 +150,22 @@ function handleResendMessage(event: MouseEvent): void {
       </div>
     </div>
     <div class="bubble-wrap">
-      <header class="bubble-meta" :class="{ 'bubble-meta--streaming': props.streaming }">
+      <header class="bubble-meta">
         <div class="bubble-meta__main">
           <span class="bubble-role">{{ roleLabel }}</span>
           <span v-if="formattedTime" class="bubble-time">{{ formattedTime }}</span>
         </div>
-        <span v-if="props.streaming" class="streaming-pill">实时生成中</span>
       </header>
       <div class="bubble">
+        <span v-if="showAssistantStreamingPlaceholder" class="streaming-hint">正在回复中…</span>
         <div
+          v-if="!showAssistantStreamingPlaceholder"
           class="markdown-body"
           :key="`${props.messageId}-${props.content.length}`"
           v-html="renderedHtml"
           @click="handleMarkdownClick"
         />
-        <span v-if="props.streaming" class="cursor" />
+        <span v-if="props.streaming && !showAssistantStreamingPlaceholder" class="cursor" />
       </div>
       <div v-if="canCopyMessage || canResendMessage" class="bubble-toolbar">
         <button
@@ -221,6 +227,7 @@ function handleResendMessage(event: MouseEvent): void {
 .bubble-wrap {
   width: fit-content;
   max-width: min(100%, 880px);
+  min-width: 0;
   display: flex;
   flex-direction: column;
   gap: 8px;
@@ -242,11 +249,6 @@ function handleResendMessage(event: MouseEvent): void {
   padding: 0 6px;
 }
 
-.bubble-meta--streaming {
-  justify-content: flex-start;
-  flex-wrap: wrap;
-}
-
 .message-row--user .bubble-meta {
   flex-direction: row-reverse;
 }
@@ -266,20 +268,6 @@ function handleResendMessage(event: MouseEvent): void {
 .bubble-time {
   font-size: 12px;
   color: #94a3b8;
-}
-
-.streaming-pill {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  min-height: 28px;
-  padding: 0 10px;
-  border-radius: 999px;
-  font-size: 12px;
-  color: #1d4ed8;
-  background: rgba(219, 234, 254, 0.82);
-  border: 1px solid rgba(59, 130, 246, 0.22);
-  flex-shrink: 0;
 }
 
 .bubble-toolbar {
@@ -340,9 +328,11 @@ function handleResendMessage(event: MouseEvent): void {
 .bubble {
   --bubble-text: #1e293b;
   --bubble-accent: #2563eb;
-  width: 100%;
+  box-sizing: border-box;
+  width: fit-content;
   max-width: 100%;
-  padding: 16px 18px;
+  min-width: 0;
+  padding: 12px 16px;
   border-radius: 24px;
   border: 1px solid rgba(148, 163, 184, 0.18);
   background: rgba(255, 255, 255, 0.84);
@@ -376,6 +366,16 @@ function handleResendMessage(event: MouseEvent): void {
   border-style: dashed;
 }
 
+.streaming-hint {
+  font-size: 14px;
+  line-height: 1.65;
+  color: #64748b;
+}
+
+.message-row--assistant .streaming-hint {
+  color: #475569;
+}
+
 .cursor {
   display: inline-flex;
   width: 8px;
@@ -390,9 +390,10 @@ function handleResendMessage(event: MouseEvent): void {
 .markdown-body {
   font-size: 14px;
   color: var(--bubble-text);
-  line-height: 1.82;
+  line-height: 1.65;
   overflow-wrap: anywhere;
   max-width: 100%;
+  min-width: 0;
 }
 
 :deep(.markdown-body > *:first-child) {
@@ -508,7 +509,7 @@ function handleResendMessage(event: MouseEvent): void {
   }
 
   .bubble {
-    padding: 14px;
+    padding: 12px 14px;
     border-radius: 20px;
   }
 

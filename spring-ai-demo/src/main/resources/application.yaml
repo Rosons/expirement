@@ -11,7 +11,7 @@ spring:
       api-key: sk-020127f24b3742b5bb3094b98dead8bb
       chat:
         options:
-          model: qwen3.5-plus
+          model: glm-4.7
 server:
   port: 8080
 
