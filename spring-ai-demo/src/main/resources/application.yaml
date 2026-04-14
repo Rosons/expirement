@@ -14,3 +14,8 @@ spring:
           model: qwen3.5-plus
 server:
   port: 8080
+
+logging:
+  level:
+    org.springframework.ai: DEBUG
+    com.aliyun: DEBUG
