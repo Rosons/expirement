@@ -5,6 +5,7 @@ import org.springframework.ai.chat.client.ChatClient;
 import org.springframework.ai.chat.memory.ChatMemory;
 import org.springframework.ai.chat.memory.ChatMemoryRepository;
 import org.springframework.ai.chat.messages.Message;
+import org.springframework.http.MediaType;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
@@ -30,7 +31,7 @@ public class ChatController {
 
     private final ChatMemoryRepository chatMemoryRepository;
 
-    @GetMapping(produces = "text/html;charset=UTF-8")
+    @GetMapping(produces = MediaType.TEXT_EVENT_STREAM_VALUE)
     public Flux<String> chat(String chatId, String message) {
         return memoryChatClient.prompt()
                 // 增加一个Advisor，动态设置当前对话的conversationId，这样ChatMemory就能正确地将消息关联到对应的会话中，实现多用户多会话的记忆功能
