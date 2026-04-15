@@ -3,20 +3,30 @@ import { computed, ref } from 'vue';
 import type { ChatRole } from '../../types/chat';
 import { renderSafeMarkdown } from '../../utils/markdown';
 
-const props = defineProps<{
-  messageId: string;
-  role: ChatRole;
-  content: string;
-  createdAt: number;
-  streaming?: boolean;
-}>();
+const props = withDefaults(
+  defineProps<{
+    messageId: string;
+    role: ChatRole;
+    content: string;
+    createdAt: number;
+    streaming?: boolean;
+    enableCopyAction?: boolean;
+    enableResendAction?: boolean;
+  }>(),
+  {
+    enableCopyAction: true,
+    enableResendAction: true,
+  },
+);
 const emit = defineEmits<{
   resendMessage: [content: string];
 }>();
 
 const renderedHtml = computed(() => renderSafeMarkdown(props.content));
-const canCopyMessage = computed(() => props.content.trim().length > 0);
-const canResendMessage = computed(() => props.role === 'user' && !props.streaming && props.content.trim().length > 0);
+const canCopyMessage = computed(() => props.enableCopyAction && props.content.trim().length > 0);
+const canResendMessage = computed(
+  () => props.enableResendAction && props.role === 'user' && !props.streaming && props.content.trim().length > 0,
+);
 const messageCopyLabel = ref('复制');
 const roleLabel = computed(() => {
   if (props.role === 'user') {

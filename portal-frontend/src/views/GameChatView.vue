@@ -42,6 +42,8 @@ const initialMessage = computed(() => {
       :initial-message="initialMessage"
       :show-conversation-sidebar="false"
       :show-new-conversation-button="false"
+      :show-message-copy-action="false"
+      :show-message-resend-action="false"
       empty-title="开始哄哄模式"
       empty-description="你可以继续发送消息，尝试更温柔、共情和具体的表达。"
       composer-placeholder="继续哄她...（Enter 发送，Shift + Enter 换行）"

@@ -21,6 +21,8 @@ const props = withDefaults(
     chatApi: ChatWorkspaceApi;
     showConversationSidebar?: boolean;
     showNewConversationButton?: boolean;
+    showMessageCopyAction?: boolean;
+    showMessageResendAction?: boolean;
     initialMessage?: string;
     emptyTitle?: string;
     emptyDescription?: string;
@@ -29,6 +31,8 @@ const props = withDefaults(
   {
     showConversationSidebar: true,
     showNewConversationButton: true,
+    showMessageCopyAction: true,
+    showMessageResendAction: true,
     initialMessage: '',
     emptyTitle: '开始聊天',
     emptyDescription: '在下方输入你的问题，按 Enter 发送。',
@@ -568,6 +572,8 @@ watch(
           :content="message.content"
           :created-at="message.createdAt"
           :streaming="message.streaming"
+          :enable-copy-action="showMessageCopyAction"
+          :enable-resend-action="showMessageResendAction"
           @resend-message="handleResendMessage"
         />
       </div>
