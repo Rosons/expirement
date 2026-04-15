@@ -26,7 +26,13 @@ const products: ProductInfo[] = [
   },
   {
     title: '知识问答',
-    description: '后续将接入知识库召回、文档索引和高可信答案生成能力。',
+    description: '基于知识库检索增强的对话能力，支持文档索引、语义召回与可追溯答案生成。',
+    statusText: '开发中',
+    active: false,
+  },
+  {
+    title: '智能客服',
+    description: '通过聊天对话结合 Function Calling，完成问题分流、工单处理与业务动作自动执行。',
     statusText: '规划中',
     active: false,
   },

@@ -14,6 +14,8 @@ const props = defineProps<ProductCardProps>();
 const cardTag = computed(() => (props.route ? 'RouterLink' : 'div'));
 const cardInitials = computed(() => props.title.slice(0, 2));
 const actionText = computed(() => (props.active ? '进入产品' : '敬请期待'));
+const isOnlineStatus = computed(() => props.statusText === '已上线');
+const isDevelopingStatus = computed(() => props.statusText === '开发中');
 </script>
 
 <template>
@@ -35,14 +37,28 @@ const actionText = computed(() => (props.active ? '进入产品' : '敬请期待
           <h3>{{ title }}</h3>
         </div>
       </div>
-      <span class="badge" :class="{ 'badge--active': active }">{{ statusText }}</span>
+      <span
+        class="badge"
+        :class="{
+          'badge--online': isOnlineStatus,
+          'badge--developing': isDevelopingStatus,
+        }"
+      >
+        {{ statusText }}
+      </span>
     </div>
 
     <p class="product-card__description">{{ description }}</p>
 
     <div class="product-card__footer">
       <span class="product-card__state">
-        <span class="product-card__state-dot" :class="{ 'product-card__state-dot--active': active }"></span>
+        <span
+          class="product-card__state-dot"
+          :class="{
+            'product-card__state-dot--online': isOnlineStatus,
+            'product-card__state-dot--developing': isDevelopingStatus,
+          }"
+        ></span>
         <span>{{ active ? '当前可进入体验' : '暂未开放' }}</span>
       </span>
       <span class="product-card__action">
@@ -181,10 +197,16 @@ h3 {
   border: 1px solid rgba(148, 163, 184, 0.18);
 }
 
-.badge--active {
-  background: rgba(59, 130, 246, 0.1);
-  color: #1d4ed8;
-  border-color: rgba(59, 130, 246, 0.16);
+.badge--online {
+  background: rgba(34, 197, 94, 0.12);
+  color: #15803d;
+  border-color: rgba(34, 197, 94, 0.22);
+}
+
+.badge--developing {
+  background: rgba(125, 211, 252, 0.24);
+  color: #0369a1;
+  border-color: rgba(125, 211, 252, 0.42);
 }
 
 .product-card__footer {
@@ -213,9 +235,14 @@ h3 {
   flex-shrink: 0;
 }
 
-.product-card__state-dot--active {
-  background: #2563eb;
-  box-shadow: 0 0 0 6px rgba(37, 99, 235, 0.12);
+.product-card__state-dot--online {
+  background: #16a34a;
+  box-shadow: 0 0 0 6px rgba(34, 197, 94, 0.16);
+}
+
+.product-card__state-dot--developing {
+  background: #38bdf8;
+  box-shadow: 0 0 0 6px rgba(125, 211, 252, 0.24);
 }
 
 .product-card__action {
