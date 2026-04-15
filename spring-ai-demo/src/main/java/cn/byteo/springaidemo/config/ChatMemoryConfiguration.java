@@ -1,5 +1,6 @@
 package cn.byteo.springaidemo.config;
 
+import cn.byteo.springaidemo.constant.SystemConstant;
 import org.springframework.ai.chat.memory.ChatMemory;
 import org.springframework.ai.chat.memory.ChatMemoryRepository;
 import org.springframework.ai.chat.memory.InMemoryChatMemoryRepository;
@@ -28,8 +29,8 @@ public class ChatMemoryConfiguration {
         // MessageWindowChatMemory 是基于消息窗口的记忆实现，可以根据窗口大小保留最近的消息，适合保持对话上下文而不占用过多内存
         return MessageWindowChatMemory.builder()
                 .chatMemoryRepository(chatMemoryRepository)
-                // 这里设置窗口大小为20，表示每次对话只保留最近的20条消息
-                .maxMessages(20)
+                // 这里设置窗口大小为IN_MEMORY_CHAT_HISTORY_LIMIT，表示每次对话只保留最近的IN_MEMORY_CHAT_HISTORY_LIMIT条消息
+                .maxMessages(SystemConstant.IN_MEMORY_CHAT_HISTORY_LIMIT)
                 .build();
     }
 }

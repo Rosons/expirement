@@ -1,10 +1,29 @@
-import type { BackendHistoryMessage, ChatRole, UiChatMessage } from '../types/chat';
+import {
+  apiClient,
+  CHAT_HISTORY_DEFAULT_PAGE,
+  CHAT_HISTORY_PAGE_SIZE,
+  getChatApiVersion,
+  getChatConversationsUrl,
+  getChatHistoryUrl,
+  getChatStreamUrl,
+} from '../api';
+import type {
+  ChatConversationListVo,
+  ChatHistoryQueryRequest,
+  ChatMessageHistoryPageVo,
+  ChatMessageHistoryVo,
+  ChatRole,
+  ChatStreamQueryRequest,
+  ConversationListItem,
+  UiChatMessage,
+} from '../types/chat';
+import { notifyRequestFailure } from './global-error-notify';
 
-const API_BASE_URL = (import.meta.env.VITE_API_BASE as string | undefined)?.trim() ?? '';
+/** 与 .env 一致，供页面分页/上滑加载使用 */
+export { CHAT_HISTORY_PAGE_SIZE, CHAT_HISTORY_DEFAULT_PAGE, getChatApiVersion };
 
-function buildApiUrl(path: string): string {
-  return `${API_BASE_URL}${path}`;
-}
+const HISTORY_PAGE = CHAT_HISTORY_DEFAULT_PAGE;
+const HISTORY_SIZE = CHAT_HISTORY_PAGE_SIZE;
 
 function findFirstNonEmptyText(value: unknown, depth = 0): string {
   if (depth > 6 || value == null) {
@@ -62,7 +81,6 @@ function extractTextFromSseData(data: string): string {
     return data;
   }
 
-  // JSON能解析但没有命中常见字段时，至少保证前端可见，便于排查流格式
   return data;
 }
 
@@ -81,59 +99,99 @@ function mapMessageTypeToRole(messageType?: string): ChatRole {
   return 'assistant';
 }
 
-function resolveHistoryText(rawMessage: BackendHistoryMessage): string {
-  const candidate =
-    rawMessage.text ??
-    rawMessage.content ??
-    rawMessage.message ??
-    rawMessage.metadata?.text ??
-    rawMessage.metadata?.content;
-
-  return typeof candidate === 'string' ? candidate : '';
+function parseBackendDateToMillis(iso?: string | null): number {
+  if (!iso) {
+    return Date.now();
+  }
+  const t = Date.parse(iso);
+  return Number.isNaN(t) ? Date.now() : t;
 }
 
-export async function fetchConversations(): Promise<string[]> {
-  const response = await fetch(buildApiUrl('/ai/chat/conversations'), {
-    cache: 'no-store',
-  });
-  if (!response.ok) {
-    throw new Error(`加载会话列表失败：${response.status}`);
+function resolveMessageBody(row: ChatMessageHistoryVo): string {
+  const main = typeof row.content === 'string' ? row.content.trim() : '';
+  if (main) {
+    return row.content ?? '';
   }
-
-  const data = (await response.json()) as unknown;
-  return Array.isArray(data) ? (data as string[]) : [];
+  const parts = row.parts ?? [];
+  const textPart = parts.find((p) => p.partType === 'TEXT' && p.contentText?.trim());
+  if (textPart?.contentText) {
+    return textPart.contentText;
+  }
+  const anyText = parts.find((p) => p.contentText?.trim());
+  return anyText?.contentText ?? '';
 }
 
-export async function fetchHistory(chatId: string): Promise<UiChatMessage[]> {
-  const query = new URLSearchParams({ chatId });
-  const response = await fetch(buildApiUrl(`/ai/chat/history?${query.toString()}`), {
-    cache: 'no-store',
-  });
-  if (!response.ok) {
-    throw new Error(`加载历史消息失败：${response.status}`);
-  }
-
-  const data = (await response.json()) as unknown;
-  if (!Array.isArray(data)) {
-    return [];
-  }
-
-  return (data as BackendHistoryMessage[]).map((item, index) => ({
-    id: `${chatId}-history-${index}`,
-    role: mapMessageTypeToRole(item.messageType),
-    content: resolveHistoryText(item),
-    createdAt: Date.now() + index,
+export function mapHistoryRecordsToUi(records: ChatMessageHistoryVo[], chatId: string): UiChatMessage[] {
+  return records.map((item, index) => ({
+    id: item.id != null ? `hist-${item.id}` : `${chatId}-history-${index}`,
+    role: mapMessageTypeToRole(item.role),
+    content: resolveMessageBody(item),
+    createdAt: parseBackendDateToMillis(item.createdAt),
   }));
 }
 
+/**
+ * 拉取一页历史（原始分页对象，用于上滑加载等）。
+ * 固定 order=desc：第 1 页为最近消息，与聊天界面自上而下「旧→新」展示一致。
+ */
+export async function fetchChatHistoryPage(query: ChatHistoryQueryRequest): Promise<ChatMessageHistoryPageVo> {
+  const page = query.page ?? HISTORY_PAGE;
+  const size = query.size ?? HISTORY_SIZE;
+  const { data } = await apiClient.get<ChatMessageHistoryPageVo>(getChatHistoryUrl(), {
+    params: {
+      chatId: query.chatId,
+      page,
+      size,
+      order: 'desc',
+    },
+  });
+  return data;
+}
+
+export async function fetchConversations(options?: { skipErrorToast?: boolean }): Promise<ConversationListItem[]> {
+  const { data: list } = await apiClient.get<ChatConversationListVo[]>(getChatConversationsUrl(), {
+    skipGlobalErrorToast: options?.skipErrorToast === true,
+  });
+  if (!Array.isArray(list)) {
+    return [];
+  }
+  return list.map((row) => ({
+    id: row.conversationId,
+    title: row.title ?? undefined,
+  }));
+}
+
+/**
+ * 仅拉取一页并映射为 UI消息（默认页/页大小由环境变量决定）。
+ */
+export async function fetchHistory(query: ChatHistoryQueryRequest): Promise<UiChatMessage[]> {
+  const page = await fetchChatHistoryPage(query);
+  return mapHistoryRecordsToUi(page.records, query.chatId);
+}
+
 export async function streamChatResponse(
-  chatId: string,
-  message: string,
+  query: ChatStreamQueryRequest,
   onChunk: (chunk: string) => void,
   signal?: AbortSignal,
 ): Promise<void> {
-  const query = new URLSearchParams({ chatId, message });
-  const response = await fetch(buildApiUrl(`/ai/chat?${query.toString()}`), {
+  try {
+    await runStreamChatResponse(query, onChunk, signal);
+  } catch (error) {
+    if (error instanceof DOMException && error.name === 'AbortError') {
+      throw error;
+    }
+    notifyRequestFailure(error);
+    throw error;
+  }
+}
+
+async function runStreamChatResponse(
+  query: ChatStreamQueryRequest,
+  onChunk: (chunk: string) => void,
+  signal?: AbortSignal,
+): Promise<void> {
+  const params = new URLSearchParams({ chatId: query.chatId, message: query.message });
+  const response = await fetch(`${getChatStreamUrl()}?${params.toString()}`, {
     method: 'GET',
     headers: {
       Accept: 'text/plain, text/html, text/event-stream',
@@ -190,7 +248,6 @@ export async function streamChatResponse(
 
       if (line.startsWith('data:')) {
         let payload = line.slice(5);
-        // SSE 规范允许 data: 后有一个可选空格，仅移除这一个，保留其余缩进
         if (payload.startsWith(' ')) {
           payload = payload.slice(1);
         }
@@ -202,7 +259,6 @@ export async function streamChatResponse(
         continue;
       }
 
-      // 兜底：非标准SSE也尽量显示文本
       if (!sseDataLines.length && line.trim()) {
         onChunk(line);
       }

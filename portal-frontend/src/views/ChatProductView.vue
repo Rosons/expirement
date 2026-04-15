@@ -2,12 +2,18 @@
 import { computed, nextTick, onMounted, ref, watch } from 'vue';
 import { useRouter } from 'vue-router';
 import ChatMessageBubble from '../components/chat/ChatMessageBubble.vue';
-import { fetchConversations, fetchHistory, streamChatResponse } from '../services/chat-api';
-import type { UiChatMessage } from '../types/chat';
+import {
+  CHAT_HISTORY_PAGE_SIZE,
+  fetchChatHistoryPage,
+  fetchConversations,
+  mapHistoryRecordsToUi,
+  streamChatResponse,
+} from '../services/chat-api';
+import type { ConversationListItem, UiChatMessage } from '../types/chat';
 
 const router = useRouter();
 
-const conversations = ref<string[]>([]);
+const conversations = ref<ConversationListItem[]>([]);
 const currentChatId = ref('');
 const messages = ref<UiChatMessage[]>([]);
 const draft = ref('');
@@ -21,6 +27,13 @@ const requestStatus = ref('');
 const manualStopRequested = ref(false);
 const shouldAutoScroll = ref(true);
 const hasUnseenNewMessages = ref(false);
+/**
+ * order=desc：第 1 页为最近消息；已加载的最大页码（上滑加载下一页 = +1，更旧）。
+ */
+const historyLastLoadedPage = ref(1);
+const historyTotalPages = ref(1);
+const hasMoreOlder = ref(false);
+const isLoadingOlder = ref(false);
 
 const canSend = computed(() => !isSending.value && draft.value.trim().length > 0);
 const totalMessageCount = computed(() => messages.value.length);
@@ -82,11 +95,21 @@ function isNearBottom(threshold = 72): boolean {
   return scrollTop + clientHeight >= scrollHeight - threshold;
 }
 
+function isNearTop(threshold = 120): boolean {
+  if (!chatBodyRef.value) {
+    return false;
+  }
+  return chatBodyRef.value.scrollTop <= threshold;
+}
+
 function handleChatScroll(): void {
   const nearBottom = isNearBottom();
   shouldAutoScroll.value = nearBottom;
   if (nearBottom) {
     hasUnseenNewMessages.value = false;
+  }
+  if (isNearTop() && hasMoreOlder.value && !isLoadingOlder.value && !isLoadingHistory.value) {
+    void loadOlderMessages();
   }
 }
 
@@ -132,15 +155,19 @@ function shortenChatId(chatId: string): string {
   return `${chatId.slice(0, 12)}...${chatId.slice(-8)}`;
 }
 
-function getConversationTitle(chatId: string, index: number): string {
-  if (chatId === currentChatId.value) {
+function getConversationTitle(item: ConversationListItem, index: number): string {
+  if (item.id === currentChatId.value) {
     return '当前会话';
+  }
+  const t = item.title?.trim();
+  if (t) {
+    return t;
   }
   return `会话 ${String(index + 1).padStart(2, '0')}`;
 }
 
-function getConversationSubtitle(chatId: string): string {
-  return shortenChatId(chatId);
+function getConversationSubtitle(item: ConversationListItem): string {
+  return shortenChatId(item.id);
 }
 
 function appendAssistantChunk(messageId: string, chunk: string): void {
@@ -178,22 +205,71 @@ async function loadConversations(): Promise<void> {
   try {
     const list = await fetchConversations();
     conversations.value = list;
-  } catch (error) {
-    console.error(error);
+  } catch {
+    /* 错误文案由全局 Toast 统一展示 */
   } finally {
     isLoadingConversations.value = false;
+  }
+}
+
+async function loadOlderMessages(): Promise<void> {
+  const chatId = currentChatId.value;
+  if (!chatId || isLoadingOlder.value || !hasMoreOlder.value || isLoadingHistory.value) {
+    return;
+  }
+  const el = chatBodyRef.value;
+  if (!el) {
+    return;
+  }
+  isLoadingOlder.value = true;
+  const prevScrollHeight = el.scrollHeight;
+  const prevScrollTop = el.scrollTop;
+  try {
+    const nextPage = historyLastLoadedPage.value + 1;
+    if (nextPage > historyTotalPages.value) {
+      hasMoreOlder.value = false;
+      return;
+    }
+    const pageVo = await fetchChatHistoryPage({
+      chatId,
+      page: nextPage,
+      size: CHAT_HISTORY_PAGE_SIZE,
+    });
+    const older = mapHistoryRecordsToUi(pageVo.records, chatId);
+    messages.value = [...older, ...messages.value];
+    historyLastLoadedPage.value = nextPage;
+    hasMoreOlder.value = nextPage < historyTotalPages.value;
+    await nextTick();
+    const newScrollHeight = el.scrollHeight;
+    el.scrollTop = newScrollHeight - prevScrollHeight + prevScrollTop;
+  } catch {
+    /* 全局 Toast */
+  } finally {
+    isLoadingOlder.value = false;
   }
 }
 
 async function loadHistory(chatId: string): Promise<void> {
   currentChatId.value = chatId;
   isLoadingHistory.value = true;
+  hasMoreOlder.value = false;
+  isLoadingOlder.value = false;
+  historyLastLoadedPage.value = 1;
+  historyTotalPages.value = 1;
   try {
-    messages.value = await fetchHistory(chatId);
-  } catch (error) {
-    messages.value = [
-      buildUiMessage('system', `加载历史消息失败：${error instanceof Error ? error.message : '未知错误'}`),
-    ];
+    const size = CHAT_HISTORY_PAGE_SIZE;
+    // fetchChatHistoryPage 固定 order=desc：第 1 页即最近一段
+    const first = await fetchChatHistoryPage({ chatId, page: 1, size });
+    if (first.total === 0) {
+      messages.value = [];
+      return;
+    }
+    historyTotalPages.value = Math.max(1, first.pages);
+    messages.value = mapHistoryRecordsToUi(first.records, chatId);
+    historyLastLoadedPage.value = 1;
+    hasMoreOlder.value = historyTotalPages.value > 1;
+  } catch {
+    messages.value = [];
   } finally {
     isLoadingHistory.value = false;
     shouldAutoScroll.value = true;
@@ -205,9 +281,12 @@ async function loadHistory(chatId: string): Promise<void> {
 async function bootstrapChatState(): Promise<void> {
   await loadConversations();
 
-  const defaultChatId = conversations.value[0] ?? createChatId();
-  if (!conversations.value.length) {
-    conversations.value = [defaultChatId];
+  let defaultChatId: string;
+  if (conversations.value.length) {
+    defaultChatId = conversations.value[0].id;
+  } else {
+    defaultChatId = createChatId();
+    conversations.value = [{ id: defaultChatId }];
   }
   await loadHistory(defaultChatId);
 }
@@ -216,12 +295,15 @@ function startNewConversation(): void {
   const chatId = createChatId();
   currentChatId.value = chatId;
   messages.value = [];
+  hasMoreOlder.value = false;
+  historyLastLoadedPage.value = 1;
+  historyTotalPages.value = 1;
   draft.value = '';
   requestStatus.value = '';
   shouldAutoScroll.value = true;
   hasUnseenNewMessages.value = false;
-  if (!conversations.value.includes(chatId)) {
-    conversations.value = [chatId, ...conversations.value];
+  if (!conversations.value.some((c) => c.id === chatId)) {
+    conversations.value = [{ id: chatId }, ...conversations.value];
   }
   nextTick(() => {
     adjustComposerHeight();
@@ -256,8 +338,7 @@ async function sendMessageContent(rawContent: string): Promise<void> {
 
   try {
     await streamChatResponse(
-      currentChatId.value,
-      userInput,
+      { chatId: currentChatId.value, message: userInput },
       (chunk) => {
         appendAssistantChunk(assistantMessage.id, chunk);
         requestStatus.value = 'AI 正在生成中...';
@@ -269,10 +350,7 @@ async function sendMessageContent(rawContent: string): Promise<void> {
     if (error instanceof DOMException && error.name === 'AbortError') {
       requestStatus.value = manualStopRequested.value ? '已停止生成' : '请求已取消';
     } else {
-      requestStatus.value = '请求失败';
-      messages.value.push(
-        buildUiMessage('system', `请求失败：${error instanceof Error ? error.message : '未知错误'}`),
-      );
+      requestStatus.value = '';
     }
   } finally {
     const hasVisibleContent = finalizeAssistantMessage(
@@ -287,17 +365,17 @@ async function sendMessageContent(rawContent: string): Promise<void> {
     isSending.value = false;
     abortController.value = null;
 
-    if (!conversations.value.includes(currentChatId.value)) {
-      conversations.value.unshift(currentChatId.value);
+    if (!conversations.value.some((c) => c.id === currentChatId.value)) {
+      conversations.value.unshift({ id: currentChatId.value });
     }
 
     try {
-      const latest = await fetchConversations();
+      const latest = await fetchConversations({ skipErrorToast: true });
       if (latest.length) {
         conversations.value = latest;
       }
-    } catch (error) {
-      console.warn(error);
+    } catch {
+      /* 发送后静默刷新会话列表，失败不打断主流程；也不重复 Toast */
     }
 
     scrollToBottom({ immediate: true, retryCount: 4 });
@@ -388,15 +466,15 @@ watch(
         </div>
         <div v-if="isLoadingConversations" class="sidebar-placeholder">会话加载中...</div>
         <ul v-else-if="conversations.length" class="conversation-list">
-          <li v-for="(chatId, index) in conversations" :key="chatId">
+          <li v-for="(item, index) in conversations" :key="item.id">
             <button
               type="button"
               class="conversation-item"
-              :class="{ 'conversation-item--active': chatId === currentChatId }"
-              @click="loadHistory(chatId)"
+              :class="{ 'conversation-item--active': item.id === currentChatId }"
+              @click="loadHistory(item.id)"
             >
-              <span class="conversation-item__title">{{ getConversationTitle(chatId, index) }}</span>
-              <span class="conversation-item__subtitle" :title="chatId">{{ getConversationSubtitle(chatId) }}</span>
+              <span class="conversation-item__title">{{ getConversationTitle(item, index) }}</span>
+              <span class="conversation-item__subtitle" :title="item.id">{{ getConversationSubtitle(item) }}</span>
             </button>
           </li>
         </ul>
@@ -405,6 +483,10 @@ watch(
 
       <section class="chat-main">
         <div ref="chatBodyRef" class="message-list" @scroll.passive="handleChatScroll">
+          <div v-if="isLoadingOlder" class="history-load-hint" aria-live="polite">加载更早消息中…</div>
+          <div v-else-if="hasMoreOlder && messages.length > 0" class="history-load-hint history-load-hint--muted">
+            上滑加载更早消息
+          </div>
           <div v-if="isLoadingHistory" class="placeholder-card">历史消息加载中...</div>
           <div v-else-if="messages.length === 0" class="empty-state">
             <h3>开始聊天</h3>
@@ -722,6 +804,18 @@ watch(
   border-radius: 16px 16px 12px 12px;
   background: rgba(248, 250, 252, 0.36);
   scroll-padding-top: 22px;
+}
+
+.history-load-hint {
+  flex-shrink: 0;
+  text-align: center;
+  padding: 4px 12px 0;
+  font-size: 12px;
+  color: #64748b;
+}
+
+.history-load-hint--muted {
+  opacity: 0.8;
 }
 
 .placeholder-card,
