@@ -5,6 +5,7 @@ import org.springframework.ai.chat.client.ChatClient;
 import org.springframework.ai.chat.memory.ChatMemory;
 import org.springframework.ai.chat.memory.ChatMemoryRepository;
 import org.springframework.ai.chat.messages.Message;
+import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.http.MediaType;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.RequestMapping;
@@ -22,7 +23,6 @@ import java.util.List;
  */
 @RestController
 @RequestMapping("/ai/chat")
-@RequiredArgsConstructor
 public class ChatController {
 
     private final ChatClient memoryChatClient;
@@ -30,6 +30,14 @@ public class ChatController {
     private final ChatMemory chatMemory;
 
     private final ChatMemoryRepository chatMemoryRepository;
+
+    public ChatController(ChatClient memoryChatClient,
+                          @Qualifier(value = "simpleChatMemory") ChatMemory chatMemory,
+                          @Qualifier(value = "simpleChatMemoryRepository") ChatMemoryRepository chatMemoryRepository) {
+        this.memoryChatClient = memoryChatClient;
+        this.chatMemory = chatMemory;
+        this.chatMemoryRepository = chatMemoryRepository;
+    }
 
     @GetMapping(produces = MediaType.TEXT_EVENT_STREAM_VALUE)
     public Flux<String> chat(String chatId, String message) {
