@@ -2,11 +2,11 @@ package cn.byteo.springaidemo.chat.entity;
 
 import cn.byteo.springaidemo.chat.enums.ChatMessagePartType;
 import cn.byteo.springaidemo.common.entity.BaseEntity;
+import cn.byteo.springaidemo.common.handler.PostgreSqlJsonbTypeHandler;
 import com.baomidou.mybatisplus.annotation.IdType;
 import com.baomidou.mybatisplus.annotation.TableField;
 import com.baomidou.mybatisplus.annotation.TableId;
 import com.baomidou.mybatisplus.annotation.TableName;
-import com.baomidou.mybatisplus.extension.handlers.JacksonTypeHandler;
 import lombok.Data;
 import lombok.EqualsAndHashCode;
 import lombok.ToString;
@@ -37,6 +37,6 @@ public class ChatMessagePart extends BaseEntity {
 
     private String mimeType;
 
-    @TableField(value = "payload", typeHandler = JacksonTypeHandler.class)
+    @TableField(value = "payload", typeHandler = PostgreSqlJsonbTypeHandler.class)
     private Map<String, Object> payload;
 }

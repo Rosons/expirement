@@ -30,7 +30,7 @@ public class ChatV2Controller {
 
     private final ChatService chatService;
 
-    public ChatV2Controller(@Qualifier("memoryChatClient") ChatClient chatClient,
+    public ChatV2Controller(@Qualifier("persistentMemoryChatClient") ChatClient chatClient,
                             @Qualifier("persistentChatService") ChatService chatService) {
         this.chatClient = chatClient;
         this.chatService = chatService;

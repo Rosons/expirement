@@ -14,7 +14,7 @@ import java.util.List;
 /**
  * v1：会话与历史来自 Spring AI 内存仓库；历史分页逻辑见 {@link SpringAiMessagesAdapter#pageHistory}。
  */
-@Service("memoryChatService")
+@Service("inMemoryChatService")
 public class MemoryChatService implements ChatService {
 
     private final ChatMemoryRepository chatMemoryRepository;

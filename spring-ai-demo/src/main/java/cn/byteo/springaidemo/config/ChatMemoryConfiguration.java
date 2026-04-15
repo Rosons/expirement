@@ -1,5 +1,8 @@
 package cn.byteo.springaidemo.config;
 
+import cn.byteo.springaidemo.chat.mapper.ChatConversationMapper;
+import cn.byteo.springaidemo.chat.mapper.ChatMessageMapper;
+import cn.byteo.springaidemo.chat.memory.PersistentChatMemory;
 import cn.byteo.springaidemo.constant.SystemConstant;
 import org.springframework.ai.chat.memory.ChatMemory;
 import org.springframework.ai.chat.memory.ChatMemoryRepository;
@@ -32,5 +35,12 @@ public class ChatMemoryConfiguration {
                 // 这里设置窗口大小为IN_MEMORY_CHAT_HISTORY_LIMIT，表示每次对话只保留最近的IN_MEMORY_CHAT_HISTORY_LIMIT条消息
                 .maxMessages(SystemConstant.IN_MEMORY_CHAT_HISTORY_LIMIT)
                 .build();
+    }
+
+    @Bean
+    ChatMemory persistentChatMemory(ChatConversationMapper chatConversationMapper,
+                                    ChatMessageMapper chatMessageMapper) {
+        // 这里可以返回一个基于数据库的ChatMemory实现
+        return new PersistentChatMemory(chatConversationMapper, chatMessageMapper);
     }
 }

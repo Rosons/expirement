@@ -25,8 +25,8 @@ CREATE TABLE IF NOT EXISTS chat_conversation (
     title             VARCHAR(512),
     user_id           VARCHAR(128),
     metadata          JSONB        NOT NULL DEFAULT '{}'::JSONB,
-    created_at        TIMESTAMPTZ  NOT NULL DEFAULT NOW(),
-    updated_at        TIMESTAMPTZ  NOT NULL DEFAULT NOW(),
+    created_at        TIMESTAMP    NOT NULL DEFAULT NOW(),
+    updated_at        TIMESTAMP    NOT NULL DEFAULT NOW(),
     deleted           SMALLINT     NOT NULL DEFAULT 0
 );
 
@@ -49,10 +49,9 @@ CREATE TABLE IF NOT EXISTS chat_message (
     role              VARCHAR(32)  NOT NULL,
     text_content      TEXT,
     extra_metadata    JSONB        NOT NULL DEFAULT '{}'::JSONB,
-    created_at        TIMESTAMPTZ  NOT NULL DEFAULT NOW(),
-    updated_at        TIMESTAMPTZ  NOT NULL DEFAULT NOW(),
-    deleted           SMALLINT     NOT NULL DEFAULT 0,
-    CONSTRAINT uq_chat_message_conv_seq UNIQUE (conversation_id, seq)
+    created_at        TIMESTAMP    NOT NULL DEFAULT NOW(),
+    updated_at        TIMESTAMP    NOT NULL DEFAULT NOW(),
+    deleted           SMALLINT     NOT NULL DEFAULT 0
 );
 
 COMMENT ON TABLE chat_message IS '会话内消息主表';
@@ -60,11 +59,15 @@ COMMENT ON COLUMN chat_message.id IS '自增主键';
 COMMENT ON COLUMN chat_message.conversation_id IS '所属会话，对应 chat_conversation.conversation_id（库级无外键）';
 COMMENT ON COLUMN chat_message.seq IS '会话内序号，从 1 递增，保证展示与拉取顺序';
 COMMENT ON COLUMN chat_message.role IS '消息角色，取值见文件头枚举说明（ChatMessageRole）';
-COMMENT ON COLUMN chat_message.text_content IS '主文本；纯文本消息通常只填本列';
-COMMENT ON COLUMN chat_message.extra_metadata IS '消息级扩展 JSON：tool_call_id、name、finish_reason 等';
+COMMENT ON COLUMN chat_message.text_content IS '主文本/摘要；可与 TEXT 片段冗余存储，便于检索与快速展示';
+COMMENT ON COLUMN chat_message.extra_metadata IS '消息级扩展 JSON：finish_reason、provider_message_id、模型附加属性等';
 COMMENT ON COLUMN chat_message.created_at IS '创建时间，插入时由 MyBatis-Plus 填充';
 COMMENT ON COLUMN chat_message.updated_at IS '最后更新时间，插入与更新时由 MyBatis-Plus 填充';
 COMMENT ON COLUMN chat_message.deleted IS '逻辑删除：0 未删除，1 已删除';
+
+CREATE UNIQUE INDEX IF NOT EXISTS uq_chat_message_conv_seq_active
+    ON chat_message (conversation_id, seq)
+    WHERE deleted = 0;
 
 CREATE INDEX IF NOT EXISTS idx_chat_message_conv_seq
     ON chat_message (conversation_id, seq);
@@ -84,13 +87,12 @@ CREATE TABLE IF NOT EXISTS chat_message_part (
     media_url    TEXT,
     mime_type    VARCHAR(128),
     payload      JSONB        NOT NULL DEFAULT '{}'::JSONB,
-    created_at   TIMESTAMPTZ  NOT NULL DEFAULT NOW(),
-    updated_at   TIMESTAMPTZ  NOT NULL DEFAULT NOW(),
-    deleted      SMALLINT     NOT NULL DEFAULT 0,
-    CONSTRAINT uq_chat_message_part_msg_idx UNIQUE (message_id, part_index)
+    created_at   TIMESTAMP    NOT NULL DEFAULT NOW(),
+    updated_at   TIMESTAMP    NOT NULL DEFAULT NOW(),
+    deleted      SMALLINT     NOT NULL DEFAULT 0
 );
 
-COMMENT ON TABLE chat_message_part IS '单条消息内的多段内容';
+COMMENT ON TABLE chat_message_part IS '单条消息内的附件/扩展片段，当前主要用于媒体资源';
 COMMENT ON COLUMN chat_message_part.id IS '自增主键';
 COMMENT ON COLUMN chat_message_part.message_id IS '所属消息，对应 chat_message.id（库级无外键）';
 COMMENT ON COLUMN chat_message_part.part_index IS '片段顺序，从 0 递增';
@@ -102,6 +104,10 @@ COMMENT ON COLUMN chat_message_part.payload IS '结构化扩展 JSON；大文件
 COMMENT ON COLUMN chat_message_part.created_at IS '创建时间，插入时由 MyBatis-Plus 填充';
 COMMENT ON COLUMN chat_message_part.updated_at IS '最后更新时间，插入与更新时由 MyBatis-Plus 填充';
 COMMENT ON COLUMN chat_message_part.deleted IS '逻辑删除：0 未删除，1 已删除';
+
+CREATE UNIQUE INDEX IF NOT EXISTS uq_chat_message_part_msg_idx_active
+    ON chat_message_part (message_id, part_index)
+    WHERE deleted = 0;
 
 CREATE INDEX IF NOT EXISTS idx_chat_message_part_message
     ON chat_message_part (message_id, part_index);

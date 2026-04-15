@@ -1,11 +1,11 @@
 package cn.byteo.springaidemo.chat.entity;
 
 import cn.byteo.springaidemo.common.entity.BaseEntity;
+import cn.byteo.springaidemo.common.handler.PostgreSqlJsonbTypeHandler;
 import com.baomidou.mybatisplus.annotation.IdType;
 import com.baomidou.mybatisplus.annotation.TableField;
 import com.baomidou.mybatisplus.annotation.TableId;
 import com.baomidou.mybatisplus.annotation.TableName;
-import com.baomidou.mybatisplus.extension.handlers.JacksonTypeHandler;
 import lombok.Data;
 import lombok.EqualsAndHashCode;
 import lombok.ToString;
@@ -28,6 +28,6 @@ public class ChatConversation extends BaseEntity {
 
     private String userId;
 
-    @TableField(value = "metadata", typeHandler = JacksonTypeHandler.class)
+    @TableField(value = "metadata", typeHandler = PostgreSqlJsonbTypeHandler.class)
     private Map<String, Object> metadata;
 }
