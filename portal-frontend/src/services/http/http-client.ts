@@ -1,7 +1,7 @@
 import axios, { type AxiosError } from 'axios';
-import type { ApiResponse } from '../types/chat';
-import { notifyRequestFailure } from './global-error-notify';
-import { getErrorMessage } from '../utils/error-message';
+import type { ApiResponse } from '../../types/chat';
+import { notifyRequestFailure } from '../notifications/error-toast-service';
+import { getErrorMessage } from '../../utils/error-message';
 
 function isApiEnvelope(value: unknown): value is ApiResponse<unknown> {
   return value !== null && typeof value === 'object' && typeof (value as ApiResponse<unknown>).code === 'number';

@@ -16,6 +16,10 @@ export default defineConfig({
         target: 'http://localhost:8080',
         changeOrigin: true,
       },
+      '/ai/game': {
+        target: 'http://localhost:8080',
+        changeOrigin: true,
+      },
     },
   },
 });

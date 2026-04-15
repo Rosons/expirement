@@ -1,5 +1,7 @@
 import { createRouter, createWebHistory } from 'vue-router';
-import ChatProductView from '../views/ChatProductView.vue';
+import GeneralChatView from '../views/GeneralChatView.vue';
+import GameChatView from '../views/GameChatView.vue';
+import GameChatEntryView from '../views/GameChatEntryView.vue';
 import PortalHomeView from '../views/PortalHomeView.vue';
 
 const router = createRouter({
@@ -13,7 +15,17 @@ const router = createRouter({
     {
       path: '/products/chat',
       name: 'product-chat',
-      component: ChatProductView,
+      component: GeneralChatView,
+    },
+    {
+      path: '/products/game-chat',
+      name: 'product-game-chat',
+      component: GameChatEntryView,
+    },
+    {
+      path: '/products/game-chat/play',
+      name: 'product-game-chat-play',
+      component: GameChatView,
     },
   ],
 });

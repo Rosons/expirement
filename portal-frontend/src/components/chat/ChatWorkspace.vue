@@ -1,17 +1,45 @@
 <script setup lang="ts">
 import { computed, nextTick, onMounted, ref, watch } from 'vue';
-import { useRouter } from 'vue-router';
-import ChatMessageBubble from '../components/chat/ChatMessageBubble.vue';
-import {
-  CHAT_HISTORY_PAGE_SIZE,
-  fetchChatHistoryPage,
-  fetchConversations,
-  mapHistoryRecordsToUi,
-  streamChatResponse,
-} from '../services/chat-api';
-import type { ConversationListItem, UiChatMessage } from '../types/chat';
+import ChatMessageBubble from './ChatMessageBubble.vue';
+import { CHAT_HISTORY_PAGE_SIZE, mapHistoryRecordsToUi } from '../../services/chat/chat-service';
+import type { ConversationListItem, UiChatMessage } from '../../types/chat';
+import type { ChatWorkspaceApi } from '../../types/chat-workspace';
 
-const router = useRouter();
+type SendSource = 'user' | 'resend' | 'initial';
+type SendLifecyclePayload = {
+  chatId: string;
+  message: string;
+  source: SendSource;
+};
+type SendResultPayload = SendLifecyclePayload & {
+  success: boolean;
+  response: string;
+};
+
+const props = withDefaults(
+  defineProps<{
+    chatApi: ChatWorkspaceApi;
+    showConversationSidebar?: boolean;
+    showNewConversationButton?: boolean;
+    initialMessage?: string;
+    emptyTitle?: string;
+    emptyDescription?: string;
+    composerPlaceholder?: string;
+  }>(),
+  {
+    showConversationSidebar: true,
+    showNewConversationButton: true,
+    initialMessage: '',
+    emptyTitle: '开始聊天',
+    emptyDescription: '在下方输入你的问题，按 Enter 发送。',
+    composerPlaceholder: '输入你的问题，Enter 发送，Shift+Enter 换行',
+  },
+);
+const emit = defineEmits<{
+  beforeSend: [payload: SendLifecyclePayload];
+  afterSend: [payload: SendResultPayload];
+  conversationChange: [chatId: string];
+}>();
 
 const conversations = ref<ConversationListItem[]>([]);
 const currentChatId = ref('');
@@ -27,6 +55,7 @@ const requestStatus = ref('');
 const manualStopRequested = ref(false);
 const shouldAutoScroll = ref(true);
 const hasUnseenNewMessages = ref(false);
+const consumedInitialMessage = ref(false);
 /**
  * order=desc：第 1 页为最近消息；已加载的最大页码（上滑加载下一页 = +1，更旧）。
  */
@@ -201,9 +230,13 @@ function finalizeAssistantMessage(messageId: string, fallbackContent?: string): 
 }
 
 async function loadConversations(): Promise<void> {
+  if (!props.chatApi.fetchConversations) {
+    conversations.value = [];
+    return;
+  }
   isLoadingConversations.value = true;
   try {
-    const list = await fetchConversations();
+    const list = await props.chatApi.fetchConversations();
     conversations.value = list;
   } catch {
     /* 错误文案由全局 Toast 统一展示 */
@@ -213,6 +246,10 @@ async function loadConversations(): Promise<void> {
 }
 
 async function loadOlderMessages(): Promise<void> {
+  if (!props.chatApi.fetchHistoryPage) {
+    hasMoreOlder.value = false;
+    return;
+  }
   const chatId = currentChatId.value;
   if (!chatId || isLoadingOlder.value || !hasMoreOlder.value || isLoadingHistory.value) {
     return;
@@ -230,7 +267,7 @@ async function loadOlderMessages(): Promise<void> {
       hasMoreOlder.value = false;
       return;
     }
-    const pageVo = await fetchChatHistoryPage({
+    const pageVo = await props.chatApi.fetchHistoryPage({
       chatId,
       page: nextPage,
       size: CHAT_HISTORY_PAGE_SIZE,
@@ -250,6 +287,12 @@ async function loadOlderMessages(): Promise<void> {
 }
 
 async function loadHistory(chatId: string): Promise<void> {
+  if (!props.chatApi.fetchHistoryPage) {
+    currentChatId.value = chatId;
+    messages.value = [];
+    hasMoreOlder.value = false;
+    return;
+  }
   currentChatId.value = chatId;
   isLoadingHistory.value = true;
   hasMoreOlder.value = false;
@@ -259,7 +302,7 @@ async function loadHistory(chatId: string): Promise<void> {
   try {
     const size = CHAT_HISTORY_PAGE_SIZE;
     // fetchChatHistoryPage 固定 order=desc：第 1 页即最近一段
-    const first = await fetchChatHistoryPage({ chatId, page: 1, size });
+    const first = await props.chatApi.fetchHistoryPage({ chatId, page: 1, size });
     if (first.total === 0) {
       messages.value = [];
       return;
@@ -279,6 +322,16 @@ async function loadHistory(chatId: string): Promise<void> {
 }
 
 async function bootstrapChatState(): Promise<void> {
+  if (!props.chatApi.fetchConversations || !props.chatApi.fetchHistoryPage) {
+    const chatId = createChatId();
+    currentChatId.value = chatId;
+    conversations.value = [{ id: chatId }];
+    messages.value = [];
+    hasMoreOlder.value = false;
+    historyLastLoadedPage.value = 1;
+    historyTotalPages.value = 1;
+    return;
+  }
   await loadConversations();
 
   let defaultChatId: string;
@@ -311,15 +364,17 @@ function startNewConversation(): void {
   });
 }
 
-async function sendMessageContent(rawContent: string): Promise<void> {
+async function sendMessageContent(rawContent: string, source: SendSource = 'user'): Promise<void> {
   const userInput = rawContent.trim();
   if (!userInput || isSending.value) {
     return;
   }
 
+  const chatId = currentChatId.value || createChatId();
   if (!currentChatId.value) {
-    currentChatId.value = createChatId();
+    currentChatId.value = chatId;
   }
+  emit('beforeSend', { chatId, message: userInput, source });
 
   const userMessage = buildUiMessage('user', userInput);
   const assistantMessage = buildUiMessage('assistant', '', true);
@@ -337,8 +392,8 @@ async function sendMessageContent(rawContent: string): Promise<void> {
   abortController.value = controller;
 
   try {
-    await streamChatResponse(
-      { chatId: currentChatId.value, message: userInput },
+    await props.chatApi.streamChatResponse(
+      { chatId, message: userInput },
       (chunk) => {
         appendAssistantChunk(assistantMessage.id, chunk);
         requestStatus.value = 'AI 正在生成中...';
@@ -362,6 +417,14 @@ async function sendMessageContent(rawContent: string): Promise<void> {
     if (!manualStopRequested.value && hasVisibleContent) {
       requestStatus.value = '响应完成';
     }
+    const finalAssistantMessage = messages.value.find((item) => item.id === assistantMessage.id);
+    emit('afterSend', {
+      chatId,
+      message: userInput,
+      source,
+      success: hasVisibleContent,
+      response: finalAssistantMessage?.content ?? '',
+    });
     isSending.value = false;
     abortController.value = null;
 
@@ -369,13 +432,15 @@ async function sendMessageContent(rawContent: string): Promise<void> {
       conversations.value.unshift({ id: currentChatId.value });
     }
 
-    try {
-      const latest = await fetchConversations({ skipErrorToast: true });
-      if (latest.length) {
-        conversations.value = latest;
+    if (props.chatApi.fetchConversations) {
+      try {
+        const latest = await props.chatApi.fetchConversations({ skipErrorToast: true });
+        if (latest.length) {
+          conversations.value = latest;
+        }
+      } catch {
+        /* 发送后静默刷新会话列表，失败不打断主流程；也不重复 Toast */
       }
-    } catch {
-      /* 发送后静默刷新会话列表，失败不打断主流程；也不重复 Toast */
     }
 
     scrollToBottom({ immediate: true, retryCount: 4 });
@@ -390,14 +455,14 @@ async function handleSendMessage(): Promise<void> {
   }
   draft.value = '';
   nextTick(adjustComposerHeight);
-  await sendMessageContent(userInput);
+  await sendMessageContent(userInput, 'user');
 }
 
 async function handleResendMessage(content: string): Promise<void> {
   if (isSending.value) {
     return;
   }
-  await sendMessageContent(content);
+  await sendMessageContent(content, 'resend');
 }
 
 function stopGenerating(): void {
@@ -414,7 +479,15 @@ function handleEnter(event: KeyboardEvent): void {
 }
 
 onMounted(() => {
-  void bootstrapChatState();
+  void (async () => {
+    await bootstrapChatState();
+    const entryMessage = props.initialMessage.trim();
+    if (!consumedInitialMessage.value && entryMessage) {
+      consumedInitialMessage.value = true;
+      await sendMessageContent(entryMessage, 'initial');
+    }
+  })();
+
   nextTick(() => {
     adjustComposerHeight();
     focusComposer();
@@ -424,6 +497,16 @@ onMounted(() => {
 watch(draft, () => {
   nextTick(adjustComposerHeight);
 });
+
+watch(
+  currentChatId,
+  (chatId) => {
+    if (chatId) {
+      emit('conversationChange', chatId);
+    }
+  },
+  { flush: 'post' },
+);
 
 watch(
   () => {
@@ -441,233 +524,95 @@ watch(
 </script>
 
 <template>
-  <main class="chat-page">
-    <header class="page-header">
-      <button class="back-button" type="button" @click="router.push('/')">
-        <span class="back-button__icon" aria-hidden="true">
-          <span class="back-button__chevron"></span>
-        </span>
-        <span class="back-button__label">返回入口</span>
-      </button>
-      <div class="page-title">
-        <div class="page-title-line">
-          <h1>智能聊天</h1>
-          <span class="page-title-divider" aria-hidden="true"></span>
-          <p>简约对话界面</p>
-        </div>
-      </div>
-    </header>
-
-    <section class="chat-layout">
-      <aside class="conversation-sidebar">
-        <div class="sidebar-head">
-          <h2>会话</h2>
-          <button type="button" class="new-chat-button" @click="startNewConversation">新会话</button>
-        </div>
-        <div v-if="isLoadingConversations" class="sidebar-placeholder">会话加载中...</div>
-        <ul v-else-if="conversations.length" class="conversation-list">
-          <li v-for="(item, index) in conversations" :key="item.id">
-            <button
-              type="button"
-              class="conversation-item"
-              :class="{ 'conversation-item--active': item.id === currentChatId }"
-              @click="loadHistory(item.id)"
-            >
-              <span class="conversation-item__title">{{ getConversationTitle(item, index) }}</span>
-              <span class="conversation-item__subtitle" :title="item.id">{{ getConversationSubtitle(item) }}</span>
-            </button>
-          </li>
-        </ul>
-        <div v-else class="sidebar-placeholder">还没有会话，先新建一个吧。</div>
-      </aside>
-
-      <section class="chat-main">
-        <div ref="chatBodyRef" class="message-list" @scroll.passive="handleChatScroll">
-          <div v-if="isLoadingOlder" class="history-load-hint" aria-live="polite">加载更早消息中…</div>
-          <div v-else-if="hasMoreOlder && messages.length > 0" class="history-load-hint history-load-hint--muted">
-            上滑加载更早消息
-          </div>
-          <div v-if="isLoadingHistory" class="placeholder-card">历史消息加载中...</div>
-          <div v-else-if="messages.length === 0" class="empty-state">
-            <h3>开始聊天</h3>
-            <p>在下方输入你的问题，按 Enter 发送。</p>
-          </div>
-          <ChatMessageBubble
-            v-for="message in messages"
-            :key="message.id"
-            :message-id="message.id"
-            :role="message.role"
-            :content="message.content"
-            :created-at="message.createdAt"
-            :streaming="message.streaming"
-            @resend-message="handleResendMessage"
-          />
-        </div>
-
-        <button
-          v-if="!shouldAutoScroll && hasUnseenNewMessages"
-          type="button"
-          class="scroll-bottom-fab"
-          @click="scrollToLatestMessage"
-        >
-          回到底部
+  <section class="chat-layout" :class="{ 'chat-layout--single': !showConversationSidebar }">
+    <aside v-if="showConversationSidebar" class="conversation-sidebar">
+      <div class="sidebar-head">
+        <h2>会话</h2>
+        <button v-if="showNewConversationButton" type="button" class="new-chat-button" @click="startNewConversation">
+          新会话
         </button>
+      </div>
+      <div v-if="isLoadingConversations" class="sidebar-placeholder">会话加载中...</div>
+      <ul v-else-if="conversations.length" class="conversation-list">
+        <li v-for="(item, index) in conversations" :key="item.id">
+          <button
+            type="button"
+            class="conversation-item"
+            :class="{ 'conversation-item--active': item.id === currentChatId }"
+            @click="loadHistory(item.id)"
+          >
+            <span class="conversation-item__title">{{ getConversationTitle(item, index) }}</span>
+            <span class="conversation-item__subtitle" :title="item.id">{{ getConversationSubtitle(item) }}</span>
+          </button>
+        </li>
+      </ul>
+      <div v-else class="sidebar-placeholder">还没有会话，先新建一个吧。</div>
+    </aside>
 
-        <footer class="composer">
-          <div class="composer-shell">
-            <textarea
-              ref="composerInputRef"
-              v-model="draft"
-              class="composer-input"
-              placeholder="输入你的问题，Enter 发送，Shift+Enter 换行"
-              :disabled="isSending"
-              @keydown="handleEnter"
-              @input="adjustComposerHeight"
-            />
-            <div class="composer-actions">
-              <div class="composer-meta">
-                <span>当前会话：{{ shortChatId }}</span>
-                <span>{{ totalMessageCount }} 条消息</span>
-                <span v-if="draftLength > 0">输入中 {{ draftLength }} 字</span>
-                <span v-if="requestStatus">{{ requestStatus }}</span>
-              </div>
-              <div class="action-buttons">
-                <button v-if="isSending" type="button" class="ghost-button" @click="stopGenerating">
-                  停止
-                </button>
-                <button type="button" class="primary-button" :disabled="!canSend" @click="handleSendMessage">
-                  {{ isSending ? '生成中...' : '发送' }}
-                </button>
-              </div>
+    <section class="chat-main">
+      <div ref="chatBodyRef" class="message-list" @scroll.passive="handleChatScroll">
+        <div v-if="isLoadingOlder" class="history-load-hint" aria-live="polite">加载更早消息中…</div>
+        <div v-else-if="hasMoreOlder && messages.length > 0" class="history-load-hint history-load-hint--muted">
+          上滑加载更早消息
+        </div>
+        <div v-if="isLoadingHistory" class="placeholder-card">历史消息加载中...</div>
+        <div v-else-if="messages.length === 0" class="empty-state">
+          <h3>{{ emptyTitle }}</h3>
+          <p>{{ emptyDescription }}</p>
+        </div>
+        <ChatMessageBubble
+          v-for="message in messages"
+          :key="message.id"
+          :message-id="message.id"
+          :role="message.role"
+          :content="message.content"
+          :created-at="message.createdAt"
+          :streaming="message.streaming"
+          @resend-message="handleResendMessage"
+        />
+      </div>
+
+      <button
+        v-if="!shouldAutoScroll && hasUnseenNewMessages"
+        type="button"
+        class="scroll-bottom-fab"
+        @click="scrollToLatestMessage"
+      >
+        回到底部
+      </button>
+
+      <footer class="composer">
+        <div class="composer-shell">
+          <textarea
+            ref="composerInputRef"
+            v-model="draft"
+            class="composer-input"
+            :placeholder="composerPlaceholder"
+            :disabled="isSending"
+            @keydown="handleEnter"
+            @input="adjustComposerHeight"
+          />
+          <div class="composer-actions">
+            <div class="composer-meta">
+              <span>当前会话：{{ shortChatId }}</span>
+              <span>{{ totalMessageCount }} 条消息</span>
+              <span v-if="draftLength > 0">输入中 {{ draftLength }} 字</span>
+              <span v-if="requestStatus">{{ requestStatus }}</span>
+            </div>
+            <div class="action-buttons">
+              <button v-if="isSending" type="button" class="ghost-button" @click="stopGenerating">停止</button>
+              <button type="button" class="primary-button" :disabled="!canSend" @click="handleSendMessage">
+                {{ isSending ? '生成中...' : '发送' }}
+              </button>
             </div>
           </div>
-        </footer>
-      </section>
+        </div>
+      </footer>
     </section>
-  </main>
+  </section>
 </template>
 
 <style scoped>
-.chat-page {
-  width: min(1400px, 100%);
-  height: 100dvh;
-  margin: 0 auto;
-  padding: 14px 16px 16px;
-  display: flex;
-  flex-direction: column;
-  gap: 12px;
-  box-sizing: border-box;
-  color: #0f172a;
-  overflow: hidden;
-}
-
-.page-header {
-  display: flex;
-  align-items: center;
-  gap: 14px;
-  flex-shrink: 0;
-  min-height: 52px;
-  padding: 4px 2px;
-}
-
-.page-title {
-  min-width: 0;
-}
-
-.page-title-line {
-  display: inline-flex;
-  align-items: center;
-  gap: 10px;
-  min-width: 0;
-  padding: 6px 8px 6px 2px;
-}
-
-.page-title h1 {
-  margin: 0;
-  font-size: 22px;
-  line-height: 1.2;
-  letter-spacing: 0.01em;
-  white-space: nowrap;
-}
-
-.page-title p {
-  margin: 0;
-  font-size: 13px;
-  color: #64748b;
-  white-space: nowrap;
-}
-
-.page-title-divider {
-  width: 4px;
-  height: 4px;
-  border-radius: 50%;
-  background: rgba(148, 163, 184, 0.9);
-  flex-shrink: 0;
-}
-
-.back-button {
-  display: inline-flex;
-  align-items: center;
-  gap: 10px;
-  min-height: 44px;
-  border: 1px solid rgba(148, 163, 184, 0.22);
-  background:
-    linear-gradient(180deg, rgba(255, 255, 255, 0.98), rgba(248, 250, 252, 0.94)),
-    rgba(255, 255, 255, 0.94);
-  color: #1e293b;
-  border-radius: 16px;
-  padding: 6px 16px 6px 8px;
-  cursor: pointer;
-  box-shadow:
-    0 10px 22px rgba(15, 23, 42, 0.04),
-    inset 0 1px 0 rgba(255, 255, 255, 0.8);
-  transition:
-    transform 0.18s ease,
-    border-color 0.18s ease,
-    box-shadow 0.18s ease,
-    background 0.18s ease;
-}
-
-.back-button:hover {
-  transform: translateX(-1px);
-  border-color: rgba(59, 130, 246, 0.3);
-  box-shadow: 0 12px 24px rgba(59, 130, 246, 0.1);
-}
-
-.back-button:focus-visible {
-  outline: none;
-  border-color: rgba(59, 130, 246, 0.42);
-  box-shadow:
-    0 0 0 4px rgba(59, 130, 246, 0.12),
-    0 12px 24px rgba(59, 130, 246, 0.08);
-}
-
-.back-button__icon {
-  display: grid;
-  place-items: center;
-  width: 28px;
-  height: 28px;
-  border-radius: 10px;
-  flex-shrink: 0;
-  border: 1px solid rgba(59, 130, 246, 0.16);
-  background: linear-gradient(180deg, rgba(239, 246, 255, 0.98), rgba(219, 234, 254, 0.88));
-}
-
-.back-button__chevron {
-  width: 8px;
-  height: 8px;
-  border-left: 2px solid #2563eb;
-  border-bottom: 2px solid #2563eb;
-  transform: translateX(1px) rotate(45deg);
-}
-
-.back-button__label {
-  font-size: 14px;
-  font-weight: 700;
-  letter-spacing: 0.01em;
-  white-space: nowrap;
-}
-
 .chat-layout {
   flex: 1;
   min-height: 0;
@@ -675,6 +620,10 @@ watch(
   grid-template-columns: 280px minmax(0, 1fr);
   gap: 12px;
   overflow: hidden;
+}
+
+.chat-layout--single {
+  grid-template-columns: minmax(0, 1fr);
 }
 
 .conversation-sidebar,
@@ -943,6 +892,10 @@ watch(
     grid-template-columns: 1fr;
   }
 
+  .chat-layout--single {
+    grid-template-columns: 1fr;
+  }
+
   .conversation-sidebar {
     max-height: 220px;
   }
@@ -954,29 +907,6 @@ watch(
 }
 
 @media (max-width: 720px) {
-  .chat-page {
-    padding: 10px;
-  }
-
-  .page-header {
-    gap: 10px;
-    align-items: flex-start;
-    flex-wrap: wrap;
-  }
-
-  .page-title-line {
-    gap: 8px;
-    flex-wrap: wrap;
-  }
-
-  .page-title h1 {
-    font-size: 20px;
-  }
-
-  .page-title p {
-    white-space: normal;
-  }
-
   .message-list {
     padding: 18px 14px 12px;
   }

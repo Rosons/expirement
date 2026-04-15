@@ -59,4 +59,18 @@ public class ModelConfiguration {
                 )
                 .build();
     }
+
+    @Bean
+    ChatClient gameChatClient(OpenAiChatModel openAiChatModel,
+                                  @Qualifier(value = "simpleChatMemory") ChatMemory chatMemory) {
+        return ChatClient.builder(openAiChatModel)
+                .defaultSystem(SystemConstant.GAME_SYSTEM_PROMPT)
+                .defaultAdvisors(
+                        // 添加打印日志的Advisor，方便观察对话过程
+                        new SimpleLoggerAdvisor(),
+                        // 添加基于消息窗口的记忆Advisor，保持对话上下文
+                        MessageChatMemoryAdvisor.builder(chatMemory).build()
+                )
+                .build();
+    }
 }

@@ -1,5 +1,5 @@
 import { reactive } from 'vue';
-import { getErrorMessage } from '../utils/error-message';
+import { getErrorMessage } from '../../utils/error-message';
 
 export const globalToastState = reactive({
   visible: false,

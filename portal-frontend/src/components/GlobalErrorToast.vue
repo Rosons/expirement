@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { globalToastState } from '../services/global-error-notify';
+import { globalToastState } from '../services/notifications/error-toast-service';
 </script>
 
 <template>

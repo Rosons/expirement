@@ -6,7 +6,7 @@ import {
   getChatConversationsUrl,
   getChatHistoryUrl,
   getChatStreamUrl,
-} from '../api';
+} from '../../api';
 import type {
   ChatConversationListVo,
   ChatHistoryQueryRequest,
@@ -16,8 +16,8 @@ import type {
   ChatStreamQueryRequest,
   ConversationListItem,
   UiChatMessage,
-} from '../types/chat';
-import { notifyRequestFailure } from './global-error-notify';
+} from '../../types/chat';
+import { notifyRequestFailure } from '../notifications/error-toast-service';
 
 /** 与 .env 一致，供页面分页/上滑加载使用 */
 export { CHAT_HISTORY_PAGE_SIZE, CHAT_HISTORY_DEFAULT_PAGE, getChatApiVersion };
@@ -175,7 +175,24 @@ export async function streamChatResponse(
   signal?: AbortSignal,
 ): Promise<void> {
   try {
-    await runStreamChatResponse(query, onChunk, signal);
+    await runStreamChatResponse(query, onChunk, getChatStreamUrl(), signal);
+  } catch (error) {
+    if (error instanceof DOMException && error.name === 'AbortError') {
+      throw error;
+    }
+    notifyRequestFailure(error);
+    throw error;
+  }
+}
+
+export async function streamChatResponseByUrl(
+  query: ChatStreamQueryRequest,
+  streamUrl: string,
+  onChunk: (chunk: string) => void,
+  signal?: AbortSignal,
+): Promise<void> {
+  try {
+    await runStreamChatResponse(query, onChunk, streamUrl, signal);
   } catch (error) {
     if (error instanceof DOMException && error.name === 'AbortError') {
       throw error;
@@ -188,10 +205,11 @@ export async function streamChatResponse(
 async function runStreamChatResponse(
   query: ChatStreamQueryRequest,
   onChunk: (chunk: string) => void,
+  streamUrl: string,
   signal?: AbortSignal,
 ): Promise<void> {
   const params = new URLSearchParams({ chatId: query.chatId, message: query.message });
-  const response = await fetch(`${getChatStreamUrl()}?${params.toString()}`, {
+  const response = await fetch(`${streamUrl}?${params.toString()}`, {
     method: 'GET',
     headers: {
       Accept: 'text/plain, text/html, text/event-stream',
@@ -202,9 +220,7 @@ async function runStreamChatResponse(
 
   if (!response.ok) {
     const responseText = await response.text().catch(() => '');
-    throw new Error(
-      `发送消息失败：${response.status}${responseText ? `，响应：${responseText.slice(0, 120)}` : ''}`,
-    );
+    throw new Error(`发送消息失败：${response.status}${responseText ? `，响应：${responseText.slice(0, 120)}` : ''}`);
   }
 
   if (!response.body) {

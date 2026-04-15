@@ -18,6 +18,13 @@ const products: ProductInfo[] = [
     active: true,
   },
   {
+    title: '哄哄模拟器',
+    description: '先输入女友生气原因再开局，进入聊天后基于通用对话能力进行实时哄人模拟。',
+    route: '/products/game-chat',
+    statusText: '已上线',
+    active: true,
+  },
+  {
     title: '知识问答',
     description: '后续将接入知识库召回、文档索引和高可信答案生成能力。',
     statusText: '规划中',

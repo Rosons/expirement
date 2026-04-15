@@ -20,3 +20,7 @@ export function getChatConversationsUrl(): string {
 export function getChatStreamUrl(): string {
   return getChatApiRootUrl();
 }
+
+export function getGameChatStreamUrl(): string {
+  return `${API_BASE_URL}/ai/game/chat`;
+}
