@@ -1,6 +1,6 @@
 import axios, { type AxiosError } from 'axios';
-import type { ApiResponse } from '../../types/chat';
-import { notifyRequestFailure } from '../notifications/error-toast-service';
+import { notifyRequestFailure } from '../../feedback';
+import type { ApiResponse } from '../../types/api';
 import { getErrorMessage } from '../../utils/error-message';
 
 function isApiEnvelope(value: unknown): value is ApiResponse<unknown> {

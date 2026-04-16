@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import { ArrowRightBold, SuccessFilled, Tools } from '@element-plus/icons-vue';
 import { computed } from 'vue';
 
 interface ProductCardProps {
@@ -16,6 +17,15 @@ const cardInitials = computed(() => props.title.slice(0, 2));
 const actionText = computed(() => (props.active ? '进入产品' : '敬请期待'));
 const isOnlineStatus = computed(() => props.statusText === '已上线');
 const isDevelopingStatus = computed(() => props.statusText === '开发中');
+const statusBadgeClass = computed(() => {
+  if (isOnlineStatus.value) {
+    return 'badge--online';
+  }
+  if (isDevelopingStatus.value) {
+    return 'badge--developing';
+  }
+  return 'badge--planned';
+});
 </script>
 
 <template>
@@ -37,13 +47,7 @@ const isDevelopingStatus = computed(() => props.statusText === '开发中');
           <h3>{{ title }}</h3>
         </div>
       </div>
-      <span
-        class="badge"
-        :class="{
-          'badge--online': isOnlineStatus,
-          'badge--developing': isDevelopingStatus,
-        }"
-      >
+      <span class="badge" :class="statusBadgeClass">
         {{ statusText }}
       </span>
     </div>
@@ -52,18 +56,20 @@ const isDevelopingStatus = computed(() => props.statusText === '开发中');
 
     <div class="product-card__footer">
       <span class="product-card__state">
-        <span
-          class="product-card__state-dot"
-          :class="{
-            'product-card__state-dot--online': isOnlineStatus,
-            'product-card__state-dot--developing': isDevelopingStatus,
-          }"
-        ></span>
+        <el-icon
+          class="product-card__state-icon"
+          :class="{ 'product-card__state-icon--developing': !isOnlineStatus }"
+        >
+          <SuccessFilled v-if="isOnlineStatus" />
+          <Tools v-else />
+        </el-icon>
         <span>{{ active ? '当前可进入体验' : '暂未开放' }}</span>
       </span>
       <span class="product-card__action">
         {{ actionText }}
-        <span class="product-card__arrow" aria-hidden="true"></span>
+        <el-icon class="product-card__arrow" aria-hidden="true">
+          <ArrowRightBold />
+        </el-icon>
       </span>
     </div>
   </component>
@@ -188,25 +194,36 @@ h3 {
 }
 
 .badge {
-  padding: 6px 10px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 22px;
+  padding: 2px 9px;
   border-radius: 999px;
-  background: rgba(226, 232, 240, 0.82);
-  color: #475569;
-  font-size: 12px;
+  font-size: 11px;
+  line-height: 1.2;
+  font-weight: 600;
+  letter-spacing: 0.01em;
   white-space: nowrap;
-  border: 1px solid rgba(148, 163, 184, 0.18);
+  border: 1px solid transparent;
 }
 
 .badge--online {
-  background: rgba(34, 197, 94, 0.12);
-  color: #15803d;
-  border-color: rgba(34, 197, 94, 0.22);
+  background: #bbf7d0;
+  color: #166534;
+  border-color: #22c55e;
 }
 
 .badge--developing {
-  background: rgba(125, 211, 252, 0.24);
-  color: #0369a1;
-  border-color: rgba(125, 211, 252, 0.42);
+  background: #67e8f9;
+  color: #164e63;
+  border-color: #22d3ee;
+}
+
+.badge--planned {
+  background: #fde047;
+  color: #854d0e;
+  border-color: #facc15;
 }
 
 .product-card__footer {
@@ -227,22 +244,14 @@ h3 {
   color: #64748b;
 }
 
-.product-card__state-dot {
-  width: 8px;
-  height: 8px;
-  border-radius: 50%;
-  background: #94a3b8;
+.product-card__state-icon {
+  font-size: 14px;
+  color: #22c55e;
   flex-shrink: 0;
 }
 
-.product-card__state-dot--online {
-  background: #16a34a;
-  box-shadow: 0 0 0 6px rgba(34, 197, 94, 0.16);
-}
-
-.product-card__state-dot--developing {
-  background: #38bdf8;
-  box-shadow: 0 0 0 6px rgba(125, 211, 252, 0.24);
+.product-card__state-icon--developing {
+  color: #38bdf8;
 }
 
 .product-card__action {
@@ -256,11 +265,11 @@ h3 {
 }
 
 .product-card__arrow {
-  width: 8px;
-  height: 8px;
-  border-top: 2px solid currentColor;
-  border-right: 2px solid currentColor;
-  transform: rotate(45deg);
+  font-size: 12px;
+}
+
+.product-card--disabled .product-card__state-icon {
+  color: #94a3b8;
 }
 
 .product-card--disabled .product-card__icon {

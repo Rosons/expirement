@@ -9,9 +9,11 @@ import {
   fetchConversations,
   fetchKnowledgeChatHistoryPage,
   fetchKnowledgeConversations,
+} from './chat-history-service';
+import {
   streamChatResponse,
   streamKnowledgeChatResponse,
-} from './chat-service';
+} from './chat-stream-service';
 import { streamGameChatResponse } from './game-chat-service';
 
 export const generalChatWorkspaceApi: ChatWorkspaceApi = {

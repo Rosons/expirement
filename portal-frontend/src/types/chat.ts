@@ -1,10 +1,3 @@
-/** 与后端 ApiResponse 对齐 */
-export interface ApiResponse<T> {
-  code: number;
-  message: string;
-  data: T;
-}
-
 export type ChatRole = 'user' | 'assistant' | 'system';
 
 export interface UiChatMessage {
@@ -18,7 +11,7 @@ export interface UiChatMessage {
 /** 与后端 ChatHistoryQueryRequest 对齐（v1 / v2 共用查询参数；前端历史接口固定传 order=desc） */
 export interface ChatHistoryQueryRequest {
   chatId: string;
-  /** 页码从 1 起，缺省由 chat-service 内默认/环境变量决定 */
+  /** 页码从 1 起，缺省由 chat-history-service 内默认/环境变量决定 */
   page?: number;
   size?: number;
 }

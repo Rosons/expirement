@@ -36,3 +36,31 @@ body {
     linear-gradient(180deg, #f8fbff 0%, #eff5ff 50%, #edf3fb 100%);
   background-attachment: fixed;
 }
+
+.el-button {
+  --el-button-border-radius: 12px;
+  font-weight: 600;
+}
+
+.el-dialog {
+  --el-dialog-border-radius: 18px;
+}
+
+.el-overlay-dialog {
+  padding: 16px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.el-overlay-dialog .el-dialog {
+  margin: 0 !important;
+}
+
+.el-message-box {
+  margin: 0 auto;
+}
+
+.el-empty__description p {
+  font-size: 13px;
+}

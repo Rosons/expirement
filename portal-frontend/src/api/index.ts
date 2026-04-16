@@ -1,4 +1,3 @@
-/** 接口根定义：环境变量、路径、HTTP 客户端 */
+/** 接口根定义：环境变量与路径 */
 export * from './chat-endpoints';
 export * from './env';
-export { apiClient } from '../services/http/http-client';

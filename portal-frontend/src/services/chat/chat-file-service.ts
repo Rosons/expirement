@@ -1,11 +1,11 @@
 import {
-  apiClient,
   getChatFileDeleteUrl,
   getChatFileDownloadUrl,
   getChatFilesListUrl,
   getChatFileUploadUrl,
-} from '../../api';
+} from '../../api/chat-endpoints';
 import type { ChatFileListItem, ChatFileUploadResult, UploadChatFileRequest } from '../../types/chat-file';
+import { apiClient } from '../http/http-client';
 
 function normalizeListItem(row: unknown): ChatFileListItem | null {
   if (row == null || typeof row !== 'object') {

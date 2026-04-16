@@ -1,6 +1,6 @@
-import { getGameChatStreamUrl } from '../../api';
+import { getGameChatStreamUrl } from '../../api/chat-endpoints';
 import type { ChatStreamQueryRequest } from '../../types/chat';
-import { streamChatResponseByUrl } from './chat-service';
+import { streamChatResponseByUrl } from './chat-stream-service';
 
 export async function streamGameChatResponse(
   query: ChatStreamQueryRequest,
