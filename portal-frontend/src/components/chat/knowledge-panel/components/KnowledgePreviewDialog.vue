@@ -21,7 +21,7 @@ const emit = defineEmits<{
     :model-value="modelValue"
     class="kb-preview-dialog"
     :title="title"
-    width="920px"
+    :width="kind === 'pdf' ? '1120px' : '920px'"
     align-center
     append-to-body
     :modal="true"
@@ -88,7 +88,7 @@ const emit = defineEmits<{
 
 .kb-preview__frame {
   width: 100%;
-  min-height: 68vh;
+  min-height: 74vh;
   border: none;
   border-radius: 14px;
   background: #f1f5f9;
