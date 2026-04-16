@@ -25,6 +25,10 @@ spring:
       chat:
         options:
           model: glm-4.7
+  servlet:
+    multipart:
+      max-file-size: 100MB
+      max-request-size: 100MB
 server:
   port: 8080
 
