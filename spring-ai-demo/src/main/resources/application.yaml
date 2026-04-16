@@ -28,6 +28,10 @@ spring:
 server:
   port: 8080
 
+app:
+  file-storage:
+    root-dir: ${APP_FILE_STORAGE_ROOT:./data/chat-files}
+
 mybatis-plus:
   configuration:
     map-underscore-to-camel-case: true

@@ -27,6 +27,7 @@ export interface ChatHistoryQueryRequest {
 export interface ChatStreamQueryRequest {
   chatId: string;
   message: string;
+  type?: string;
 }
 
 /**
@@ -36,6 +37,7 @@ export interface ChatStreamQueryRequest {
 export interface ChatConversationListVo {
   conversationId: string;
   title?: string | null;
+  type?: string | null;
   updatedAt?: string | null;
 }
 

@@ -17,5 +17,7 @@ public class ChatConversationListVo {
 
     private String title;
 
+    private String type;
+
     private LocalDateTime updatedAt;
 }

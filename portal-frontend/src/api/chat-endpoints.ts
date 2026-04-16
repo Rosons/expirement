@@ -22,5 +22,46 @@ export function getChatStreamUrl(): string {
 }
 
 export function getGameChatStreamUrl(): string {
-  return `${API_BASE_URL}/ai/game/chat`;
+  return `${API_BASE_URL}/game/ai/chat`;
+}
+
+/** {@link KnowledgeChatController}：`/knowledge/ai/chat` */
+export function getKnowledgeChatApiRootUrl(): string {
+  return `${API_BASE_URL}/knowledge/ai/chat`;
+}
+
+export function getKnowledgeChatHistoryUrl(): string {
+  return `${getKnowledgeChatApiRootUrl()}/history`;
+}
+
+export function getKnowledgeChatConversationsUrl(): string {
+  return `${getKnowledgeChatApiRootUrl()}/conversations`;
+}
+
+export function getKnowledgeChatStreamUrl(): string {
+  return getKnowledgeChatApiRootUrl();
+}
+
+/** 后端 `ChatFileController` 的 `@RequestMapping("/ai/files")` 根路径（不含尾斜杠） */
+function chatFilesRootPath(): string {
+  return `${API_BASE_URL}/ai/files`;
+}
+
+export function getChatFileUploadUrl(): string {
+  return `${chatFilesRootPath()}/upload`;
+}
+
+/** GET：按会话列举，`?conversationId=` */
+export function getChatFilesListUrl(): string {
+  return chatFilesRootPath();
+}
+
+/** GET：下载/预览（`ChatFileController` `/download/{fileId}`，fetch 直连） */
+export function getChatFileDownloadUrl(fileId: string): string {
+  return `${chatFilesRootPath()}/download/${encodeURIComponent(fileId)}`;
+}
+
+/** DELETE：按 id 删除（`/ai/files/{fileId}`，`conversationId` 由 axios params 传入） */
+export function getChatFileDeleteUrl(fileId: string): string {
+  return `${chatFilesRootPath()}/${encodeURIComponent(fileId)}`;
 }

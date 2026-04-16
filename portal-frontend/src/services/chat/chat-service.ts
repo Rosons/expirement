@@ -6,6 +6,9 @@ import {
   getChatConversationsUrl,
   getChatHistoryUrl,
   getChatStreamUrl,
+  getKnowledgeChatConversationsUrl,
+  getKnowledgeChatHistoryUrl,
+  getKnowledgeChatStreamUrl,
 } from '../../api';
 import type {
   ChatConversationListVo,
@@ -148,8 +151,47 @@ export async function fetchChatHistoryPage(query: ChatHistoryQueryRequest): Prom
   return data;
 }
 
-export async function fetchConversations(options?: { skipErrorToast?: boolean }): Promise<ConversationListItem[]> {
+export async function fetchConversations(options?: {
+  skipErrorToast?: boolean;
+  type?: string;
+}): Promise<ConversationListItem[]> {
   const { data: list } = await apiClient.get<ChatConversationListVo[]>(getChatConversationsUrl(), {
+    params: {
+      type: options?.type,
+    },
+    skipGlobalErrorToast: options?.skipErrorToast === true,
+  });
+  if (!Array.isArray(list)) {
+    return [];
+  }
+  return list.map((row) => ({
+    id: row.conversationId,
+    title: row.title ?? undefined,
+  }));
+}
+
+export async function fetchKnowledgeChatHistoryPage(query: ChatHistoryQueryRequest): Promise<ChatMessageHistoryPageVo> {
+  const page = query.page ?? HISTORY_PAGE;
+  const size = query.size ?? HISTORY_SIZE;
+  const { data } = await apiClient.get<ChatMessageHistoryPageVo>(getKnowledgeChatHistoryUrl(), {
+    params: {
+      chatId: query.chatId,
+      page,
+      size,
+      order: 'desc',
+    },
+  });
+  return data;
+}
+
+export async function fetchKnowledgeConversations(options?: {
+  skipErrorToast?: boolean;
+  type?: string;
+}): Promise<ConversationListItem[]> {
+  const { data: list } = await apiClient.get<ChatConversationListVo[]>(getKnowledgeChatConversationsUrl(), {
+    params: {
+      type: options?.type,
+    },
     skipGlobalErrorToast: options?.skipErrorToast === true,
   });
   if (!Array.isArray(list)) {
@@ -202,6 +244,22 @@ export async function streamChatResponseByUrl(
   }
 }
 
+export async function streamKnowledgeChatResponse(
+  query: ChatStreamQueryRequest,
+  onChunk: (chunk: string) => void,
+  signal?: AbortSignal,
+): Promise<void> {
+  try {
+    await runStreamChatResponse(query, onChunk, getKnowledgeChatStreamUrl(), signal);
+  } catch (error) {
+    if (error instanceof DOMException && error.name === 'AbortError') {
+      throw error;
+    }
+    notifyRequestFailure(error);
+    throw error;
+  }
+}
+
 async function runStreamChatResponse(
   query: ChatStreamQueryRequest,
   onChunk: (chunk: string) => void,
@@ -209,6 +267,9 @@ async function runStreamChatResponse(
   signal?: AbortSignal,
 ): Promise<void> {
   const params = new URLSearchParams({ chatId: query.chatId, message: query.message });
+  if (query.type?.trim()) {
+    params.set('type', query.type.trim());
+  }
   const response = await fetch(`${streamUrl}?${params.toString()}`, {
     method: 'GET',
     headers: {

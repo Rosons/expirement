@@ -2,6 +2,7 @@ import { createRouter, createWebHistory } from 'vue-router';
 import GeneralChatView from '../views/GeneralChatView.vue';
 import GameChatView from '../views/GameChatView.vue';
 import GameChatEntryView from '../views/GameChatEntryView.vue';
+import KnowledgeChatView from '../views/KnowledgeChatView.vue';
 import PortalHomeView from '../views/PortalHomeView.vue';
 
 const router = createRouter({
@@ -16,6 +17,11 @@ const router = createRouter({
       path: '/products/chat',
       name: 'product-chat',
       component: GeneralChatView,
+    },
+    {
+      path: '/products/knowledge-chat',
+      name: 'product-knowledge-chat',
+      component: KnowledgeChatView,
     },
     {
       path: '/products/game-chat',

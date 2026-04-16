@@ -7,6 +7,7 @@ import cn.byteo.springaidemo.chat.mapper.ChatConversationMapper;
 import cn.byteo.springaidemo.chat.mapper.ChatMessageMapper;
 import cn.byteo.springaidemo.chat.mapper.ChatMessagePartMapper;
 import cn.byteo.springaidemo.chat.service.ChatService;
+import cn.byteo.springaidemo.chat.support.ChatConversationTypeSupport;
 import cn.byteo.springaidemo.chat.support.SpringAiMessagesAdapter;
 import cn.byteo.springaidemo.chat.vo.ChatConversationListVo;
 import cn.byteo.springaidemo.chat.vo.ChatMessageHistoryPageVo;
@@ -37,13 +38,19 @@ public class PersistentChatService implements ChatService {
     private final ChatMessagePartMapper chatMessagePartMapper;
 
     @Override
-    public List<ChatConversationListVo> listConversations() {
+    public List<ChatConversationListVo> listConversations(String type) {
+        String normalizedType = ChatConversationTypeSupport.normalize(type);
+        if (!StringUtils.hasText(normalizedType)) {
+            return List.of();
+        }
         LambdaQueryWrapper<ChatConversation> q = new LambdaQueryWrapper<>();
+        q.eq(ChatConversation::getType, normalizedType);
         q.orderByDesc(ChatConversation::getUpdatedAt);
         return chatConversationMapper.selectList(q).stream()
                 .map(c -> ChatConversationListVo.builder()
                         .conversationId(c.getConversationId())
                         .title(c.getTitle())
+                        .type(c.getType())
                         .updatedAt(c.getUpdatedAt())
                         .build())
                 .toList();

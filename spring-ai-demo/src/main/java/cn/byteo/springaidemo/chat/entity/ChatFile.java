@@ -13,22 +13,28 @@ import lombok.ToString;
 import java.util.Map;
 
 /**
- * 聊天会话，对应表 {@code chat_conversation}。
+ * 聊天上传文件信息。
  */
 @Data
 @EqualsAndHashCode(callSuper = true)
 @ToString(callSuper = true)
-@TableName(value = "chat_conversation", autoResultMap = true)
-public class ChatConversation extends BaseEntity {
+@TableName(value = "chat_file", autoResultMap = true)
+public class ChatFile extends BaseEntity {
 
-    @TableId(value = "conversation_id", type = IdType.INPUT)
+    @TableId(value = "file_id", type = IdType.INPUT)
+    private String fileId;
+
     private String conversationId;
 
-    private String title;
+    private String originalFilename;
 
-    private String userId;
+    private String storedFilename;
 
-    private String type;
+    private String storagePath;
+
+    private String contentType;
+
+    private Long fileSize;
 
     @TableField(value = "metadata", typeHandler = PostgreSqlJsonbTypeHandler.class)
     private Map<String, Object> metadata;

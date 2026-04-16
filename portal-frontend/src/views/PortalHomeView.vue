@@ -27,8 +27,9 @@ const products: ProductInfo[] = [
   {
     title: '知识问答',
     description: '基于知识库检索增强的对话能力，支持文档索引、语义召回与可追溯答案生成。',
-    statusText: '开发中',
-    active: false,
+    route: '/products/knowledge-chat',
+    statusText: '已上线',
+    active: true,
   },
   {
     title: '智能客服',

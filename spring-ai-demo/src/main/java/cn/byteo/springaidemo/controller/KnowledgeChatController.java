@@ -11,22 +11,21 @@ import org.springframework.ai.chat.client.ChatClient;
 import org.springframework.ai.chat.memory.ChatMemory;
 import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.http.MediaType;
-import org.springframework.web.bind.annotation.GetMapping;
-import org.springframework.web.bind.annotation.ModelAttribute;
-import org.springframework.web.bind.annotation.RequestParam;
-import org.springframework.web.bind.annotation.RequestMapping;
-import org.springframework.web.bind.annotation.RestController;
+import org.springframework.web.bind.annotation.*;
 import reactor.core.publisher.Flux;
 
 import java.util.List;
 
 /**
- * 聊天 API v2：会话与历史数据来自 {@link cn.byteo.springaidemo.chat.service.impl.PersistentChatService}；入参/出参与 v1 一致（便于前端只切换版本前缀）。
- * 流式对话仍使用内存 {@link ChatMemory}。
+ * <p>这里描述类的主要功能</p>
+ *
+ * @author Roson
+ * @file KnowledgeChatController
+ * @since 2026/4/16
  */
 @RestController
-@RequestMapping("/v2/ai/chat")
-public class ChatV2Controller {
+@RequestMapping("/knowledge/ai/chat")
+public class KnowledgeChatController {
 
     private final ChatClient chatClient;
 
@@ -34,9 +33,9 @@ public class ChatV2Controller {
 
     private final ChatConversationManageService chatConversationManageService;
 
-    public ChatV2Controller(@Qualifier("persistentMemoryChatClient") ChatClient chatClient,
-                            @Qualifier("persistentChatService") ChatService chatService,
-                            ChatConversationManageService chatConversationManageService) {
+    public KnowledgeChatController(@Qualifier("knowledgeChatClient") ChatClient chatClient,
+                                   @Qualifier("persistentChatService") ChatService chatService,
+                                   ChatConversationManageService chatConversationManageService) {
         this.chatClient = chatClient;
         this.chatService = chatService;
         this.chatConversationManageService = chatConversationManageService;

@@ -59,7 +59,6 @@ public class PersistentChatMemory implements ChatMemory {
             return;
         }
 
-        ensureConversationExists(normalizedConversationId);
         int nextSeq = findNextSeq(normalizedConversationId);
         for (Message message : validMessages) {
             chatMessageMapper.insert(toEntity(normalizedConversationId, nextSeq++, message));
@@ -94,23 +93,6 @@ public class PersistentChatMemory implements ChatMemory {
         queryWrapper.eq(ChatMessage::getConversationId, normalizedConversationId);
         chatMessageMapper.delete(queryWrapper);
         touchConversation(normalizedConversationId);
-    }
-
-    /**
-     * 确保会话主记录存在。
-     * <p>
-     * 当前会话表只保存最小信息，标题、归属用户、扩展属性等后续再按业务需要补齐。
-     * </p>
-     */
-    private void ensureConversationExists(String conversationId) {
-        if (chatConversationMapper.selectById(conversationId) != null) {
-            return;
-        }
-
-        ChatConversation conversation = new ChatConversation();
-        conversation.setConversationId(conversationId);
-        conversation.setMetadata(Map.of());
-        chatConversationMapper.insert(conversation);
     }
 
     /**

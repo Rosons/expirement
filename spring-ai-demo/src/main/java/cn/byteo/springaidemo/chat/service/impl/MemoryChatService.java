@@ -1,5 +1,6 @@
 package cn.byteo.springaidemo.chat.service.impl;
 
+import cn.byteo.springaidemo.chat.service.InMemoryConversationTypeStore;
 import cn.byteo.springaidemo.chat.service.ChatService;
 import cn.byteo.springaidemo.chat.support.SpringAiMessagesAdapter;
 import cn.byteo.springaidemo.chat.vo.ChatConversationListVo;
@@ -18,17 +19,23 @@ import java.util.List;
 public class MemoryChatService implements ChatService {
 
     private final ChatMemoryRepository chatMemoryRepository;
+    private final InMemoryConversationTypeStore conversationTypeStore;
 
-    public MemoryChatService(@Qualifier("simpleChatMemoryRepository") ChatMemoryRepository chatMemoryRepository) {
+    public MemoryChatService(@Qualifier("simpleChatMemoryRepository") ChatMemoryRepository chatMemoryRepository,
+                             InMemoryConversationTypeStore conversationTypeStore) {
         this.chatMemoryRepository = chatMemoryRepository;
+        this.conversationTypeStore = conversationTypeStore;
     }
 
     @Override
-    public List<ChatConversationListVo> listConversations() {
+    public List<ChatConversationListVo> listConversations(String type) {
+        String requiredType = conversationTypeStore.requireType(type);
         return chatMemoryRepository.findConversationIds().stream()
+                .filter(id -> conversationTypeStore.matchesType(id, requiredType))
                 .map(id -> ChatConversationListVo.builder()
                         .conversationId(id)
                         .title(null)
+                        .type(requiredType)
                         .updatedAt(null)
                         .build())
                 .toList();

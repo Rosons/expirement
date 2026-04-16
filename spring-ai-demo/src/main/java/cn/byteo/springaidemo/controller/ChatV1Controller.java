@@ -3,6 +3,7 @@ package cn.byteo.springaidemo.controller;
 import cn.byteo.springaidemo.chat.dto.ChatHistoryQueryRequest;
 import cn.byteo.springaidemo.chat.dto.ChatStreamQueryRequest;
 import cn.byteo.springaidemo.chat.service.ChatService;
+import cn.byteo.springaidemo.chat.service.InMemoryConversationTypeStore;
 import cn.byteo.springaidemo.chat.vo.ChatConversationListVo;
 import cn.byteo.springaidemo.chat.vo.ChatMessageHistoryPageVo;
 import cn.byteo.springaidemo.common.web.ApiResponse;
@@ -12,6 +13,7 @@ import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.http.MediaType;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.ModelAttribute;
+import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 import reactor.core.publisher.Flux;
@@ -30,14 +32,19 @@ public class ChatV1Controller {
 
     private final ChatService chatService;
 
+    private final InMemoryConversationTypeStore conversationTypeStore;
+
     public ChatV1Controller(@Qualifier("inMemoryChatClient") ChatClient chatClient,
-                            @Qualifier("inMemoryChatService") ChatService chatService) {
+                            @Qualifier("inMemoryChatService") ChatService chatService,
+                            InMemoryConversationTypeStore conversationTypeStore) {
         this.chatClient = chatClient;
         this.chatService = chatService;
+        this.conversationTypeStore = conversationTypeStore;
     }
 
     @GetMapping(produces = MediaType.TEXT_EVENT_STREAM_VALUE)
     public Flux<String> chat(@ModelAttribute ChatStreamQueryRequest query) {
+        conversationTypeStore.ensureConversationType(query.getChatId(), query.requireType());
         return chatClient.prompt()
                 .advisors(p -> p.param(ChatMemory.CONVERSATION_ID, query.getChatId()))
                 .user(query.getMessage())
@@ -46,8 +53,8 @@ public class ChatV1Controller {
     }
 
     @GetMapping("/conversations")
-    public ApiResponse<List<ChatConversationListVo>> getConversations() {
-        return ApiResponse.ok(chatService.listConversations());
+    public ApiResponse<List<ChatConversationListVo>> getConversations(@RequestParam(value = "type") String type) {
+        return ApiResponse.ok(chatService.listConversations(type));
     }
 
     /**

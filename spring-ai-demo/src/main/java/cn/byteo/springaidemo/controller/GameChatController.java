@@ -19,7 +19,7 @@ import reactor.core.publisher.Flux;
  * @since 2026/4/15
  */
 @RestController
-@RequestMapping("/ai/game/chat")
+@RequestMapping("/game/ai/chat")
 public class GameChatController {
 
     private final ChatClient chatClient;

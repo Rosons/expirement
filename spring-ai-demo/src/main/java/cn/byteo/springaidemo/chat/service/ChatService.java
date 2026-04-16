@@ -12,7 +12,7 @@ import java.util.List;
  */
 public interface ChatService {
 
-    List<ChatConversationListVo> listConversations();
+    List<ChatConversationListVo> listConversations(String type);
 
     /**
      * @param conversationId 会话 ID；空白时返回空分页（与持久化实现行为一致）

@@ -23,6 +23,7 @@ const props = withDefaults(
     showNewConversationButton?: boolean;
     showMessageCopyAction?: boolean;
     showMessageResendAction?: boolean;
+    showTrailingPanel?: boolean;
     initialMessage?: string;
     emptyTitle?: string;
     emptyDescription?: string;
@@ -33,6 +34,7 @@ const props = withDefaults(
     showNewConversationButton: true,
     showMessageCopyAction: true,
     showMessageResendAction: true,
+    showTrailingPanel: false,
     initialMessage: '',
     emptyTitle: '开始聊天',
     emptyDescription: '在下方输入你的问题，按 Enter 发送。',
@@ -525,10 +527,17 @@ watch(
     scrollToBottom({ immediate: true, retryCount: 2 });
   },
 );
+
 </script>
 
 <template>
-  <section class="chat-layout" :class="{ 'chat-layout--single': !showConversationSidebar }">
+  <section
+    class="chat-layout"
+    :class="{
+      'chat-layout--single': !showConversationSidebar,
+      'chat-layout--with-trailing': showTrailingPanel,
+    }"
+  >
     <aside v-if="showConversationSidebar" class="conversation-sidebar">
       <div class="sidebar-head">
         <h2>会话</h2>
@@ -615,6 +624,10 @@ watch(
         </div>
       </footer>
     </section>
+
+    <aside v-if="showTrailingPanel" class="chat-trailing-panel">
+      <slot name="trailing" />
+    </aside>
   </section>
 </template>
 
@@ -630,6 +643,22 @@ watch(
 
 .chat-layout--single {
   grid-template-columns: minmax(0, 1fr);
+}
+
+.chat-layout--with-trailing {
+  grid-template-columns: 280px minmax(0, 1fr) minmax(260px, 320px);
+}
+
+.chat-trailing-panel {
+  min-height: 0;
+  border-radius: 20px;
+  border: 1px solid rgba(148, 163, 184, 0.2);
+  background: rgba(255, 255, 255, 0.86);
+  box-shadow: 0 16px 34px rgba(15, 23, 42, 0.05);
+  backdrop-filter: blur(16px);
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
 }
 
 .conversation-sidebar,
@@ -900,6 +929,11 @@ watch(
 
   .chat-layout--single {
     grid-template-columns: 1fr;
+  }
+
+  .chat-layout--with-trailing {
+    grid-template-columns: 1fr;
+    grid-template-rows: auto minmax(0, 1fr) minmax(200px, 38vh);
   }
 
   .conversation-sidebar {
