@@ -43,7 +43,18 @@ app:
     # 向量持久化文件根路径（文件名固定为 simple-vector-store.json）
     persist-root-dir: ${APP_VECTOR_STORE_ROOT:./data/vector-store}
     # 删除文件时用于检索待删向量文档的上限；文档切片较多时可适当调大
-    delete-search-top-k: 1000
+    delete-search-top-k: 10000
+    splitter:
+      # 每个分片的目标 token 数，通用场景建议 300~800
+      chunk-size: 500
+      # 分片最小字符数，防止出现过短碎片
+      min-chunk-size-chars: 100
+      # 小于该字符数的分片不做向量化，减少噪声
+      min-chunk-length-to-embed: 30
+      # 单个文档最多分片数量，避免超大文档导致内存和耗时失控
+      max-num-chunks: 10000
+      # 是否保留标点和分隔符，通用检索建议开启
+      keep-separator: true
 
 mybatis-plus:
   configuration:

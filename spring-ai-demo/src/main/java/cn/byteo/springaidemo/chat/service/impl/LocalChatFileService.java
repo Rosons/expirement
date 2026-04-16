@@ -6,6 +6,7 @@ import cn.byteo.springaidemo.chat.service.ChatConversationManageService;
 import cn.byteo.springaidemo.chat.service.ChatFileService;
 import cn.byteo.springaidemo.chat.vo.ChatFileListVo;
 import cn.byteo.springaidemo.chat.vo.ChatFileUploadVo;
+import cn.byteo.springaidemo.constant.FileTypeConstant;
 import cn.byteo.springaidemo.constant.SystemConstant;
 import cn.byteo.springaidemo.exception.BusinessException;
 import com.baomidou.mybatisplus.core.toolkit.Wrappers;
@@ -16,6 +17,8 @@ import org.springframework.ai.document.Document;
 import org.springframework.ai.reader.ExtractedTextFormatter;
 import org.springframework.ai.reader.pdf.PagePdfDocumentReader;
 import org.springframework.ai.reader.pdf.config.PdfDocumentReaderConfig;
+import org.springframework.ai.reader.tika.TikaDocumentReader;
+import org.springframework.ai.transformer.splitter.TokenTextSplitter;
 import org.springframework.ai.vectorstore.SearchRequest;
 import org.springframework.ai.vectorstore.SimpleVectorStore;
 import org.springframework.ai.vectorstore.VectorStore;
@@ -27,10 +30,12 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.util.StreamUtils;
 import org.springframework.util.StringUtils;
 
 import java.io.IOException;
 import java.io.InputStream;
+import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
@@ -65,6 +70,21 @@ public class LocalChatFileService implements ChatFileService {
     @Value("${app.vector-store.persist-root-dir:./data/vector-store}")
     private String vectorStorePersistRootDir;
 
+    @Value("${app.vector-store.splitter.chunk-size:500}")
+    private int splitterChunkSize;
+
+    @Value("${app.vector-store.splitter.min-chunk-size-chars:100}")
+    private int splitterMinChunkSizeChars;
+
+    @Value("${app.vector-store.splitter.min-chunk-length-to-embed:30}")
+    private int splitterMinChunkLengthToEmbed;
+
+    @Value("${app.vector-store.splitter.max-num-chunks:10000}")
+    private int splitterMaxNumChunks;
+
+    @Value("${app.vector-store.splitter.keep-separator:true}")
+    private boolean splitterKeepSeparator;
+
     @Override
     @Transactional
     public ChatFileUploadVo upload(String conversationId, Resource resource, String ensureConversationType) {
@@ -83,8 +103,13 @@ public class LocalChatFileService implements ChatFileService {
                 : "unknown";
 
         String extension = resolveExtension(originalName);
+        // 判断文件类型是否允许上传
+        if (!FileTypeConstant.ALLOWED_FILE_EXTENSIONS.contains(extension)) {
+            throw new BusinessException("不支持的文件类型");
+        }
+
         String fileId = UUID.randomUUID().toString().replace("-", "");
-        String storedFilename = fileId + extension;
+        String storedFilename = fileId + SystemConstant.DOT + extension;
 
         Path root = resolveStorageRoot();
         String safeConversationId = sanitizePathSegment(normalizedConversationId);
@@ -115,12 +140,13 @@ public class LocalChatFileService implements ChatFileService {
         entity.setMetadata(Map.of());
         chatFileMapper.insert(entity);
 
-        // 解析pdf
-        PagePdfDocumentReader reader = new PagePdfDocumentReader(resource,
-                PdfDocumentReaderConfig.builder()
-                        .withPageExtractedTextFormatter(ExtractedTextFormatter.defaults())
-                        .build());
-        List<Document> documents = reader.read();
+        // 读取文件内容并分片
+        List<Document> documents;
+        try {
+            documents = readAndSplitDocument(resource, extension);
+        } catch (IOException e) {
+            throw new BusinessException(HttpStatus.INTERNAL_SERVER_ERROR, "解析并切片文件失败");
+        }
         // 添加自定义属性
         for (Document document : documents) {
             Map<String, Object> metadata = document.getMetadata();
@@ -240,7 +266,7 @@ public class LocalChatFileService implements ChatFileService {
         if (idx < 0 || idx == filename.length() - 1) {
             return "";
         }
-        return filename.substring(idx);
+        return filename.substring(idx + 1);
     }
 
     private static String resolveContentType(Resource resource, Path targetFile) {
@@ -338,5 +364,52 @@ public class LocalChatFileService implements ChatFileService {
         } catch (IOException e) {
             throw new BusinessException(HttpStatus.INTERNAL_SERVER_ERROR, "初始化向量持久化目录失败");
         }
+    }
+
+    /**
+     * 读取并分块文档
+     */
+    private List<Document> readAndSplitDocument(Resource resource, String fileType) throws IOException {
+        List<Document> documents;
+
+        if (FileTypeConstant.isPdf(fileType)) {
+            // 解析pdf
+            log.info("使用 pdf-reader 读取 PDF 文档: {}", fileType);
+            PagePdfDocumentReader reader = new PagePdfDocumentReader(resource,
+                    PdfDocumentReaderConfig.builder()
+                            .withPageExtractedTextFormatter(ExtractedTextFormatter.defaults())
+                            .build());
+            documents = reader.read();
+
+        } else if (FileTypeConstant.isOfficeDocument(fileType)) {
+            // Office 文档读取（使用 Tika）
+            log.info("使用 Tika 读取 Office 文档: {}", fileType);
+            TikaDocumentReader tikaReader = new TikaDocumentReader(resource);
+            documents = tikaReader.get();
+
+        } else if (FileTypeConstant.isPlainText(fileType)) {
+            // 纯文本文档读取
+            log.info("纯文本读取文档: {}", fileType);
+            String content = StreamUtils.copyToString(resource.getInputStream(), StandardCharsets.UTF_8);
+            documents = List.of(new Document(content));
+
+        } else {
+            throw new IllegalArgumentException("不支持的文件类型: " + fileType);
+        }
+
+        // 文本分块（使用配置的分块参数）
+        log.info("开始文档分片: fileType={}, sourceDocumentCount={}, chunkSize={}, minChunkSizeChars={}, minChunkLengthToEmbed={}, maxNumChunks={}, keepSeparator={}",
+                fileType, documents.size(), splitterChunkSize, splitterMinChunkSizeChars, splitterMinChunkLengthToEmbed, splitterMaxNumChunks, splitterKeepSeparator);
+        TokenTextSplitter tokenTextSplitter = TokenTextSplitter.builder()
+                .withChunkSize(Math.max(1, splitterChunkSize))
+                .withMinChunkSizeChars(Math.max(1, splitterMinChunkSizeChars))
+                .withMinChunkLengthToEmbed(Math.max(1, splitterMinChunkLengthToEmbed))
+                .withMaxNumChunks(Math.max(1, splitterMaxNumChunks))
+                .withKeepSeparator(splitterKeepSeparator)
+                .build();
+        List<Document> destDocuments = tokenTextSplitter.apply(documents);
+        log.info("完成文档分片: fileType={}, sourceDocumentCount={}, chunkDocumentCount={}",
+                fileType, documents.size(), destDocuments.size());
+        return destDocuments;
     }
 }

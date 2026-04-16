@@ -61,6 +61,11 @@
             <groupId>org.springframework.ai</groupId>
             <artifactId>spring-ai-pdf-document-reader</artifactId>
         </dependency>
+        <!-- Spring AI Tika Document Reader (Word, Excel, etc.) -->
+        <dependency>
+            <groupId>org.springframework.ai</groupId>
+            <artifactId>spring-ai-tika-document-reader</artifactId>
+        </dependency>
 
         <!--postgresql及管理依赖-->
         <dependency>
