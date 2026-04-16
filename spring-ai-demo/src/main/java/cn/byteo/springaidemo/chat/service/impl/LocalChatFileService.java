@@ -6,13 +6,25 @@ import cn.byteo.springaidemo.chat.service.ChatConversationManageService;
 import cn.byteo.springaidemo.chat.service.ChatFileService;
 import cn.byteo.springaidemo.chat.vo.ChatFileListVo;
 import cn.byteo.springaidemo.chat.vo.ChatFileUploadVo;
+import cn.byteo.springaidemo.constant.SystemConstant;
 import cn.byteo.springaidemo.exception.BusinessException;
 import com.baomidou.mybatisplus.core.toolkit.Wrappers;
+import jakarta.annotation.PostConstruct;
+import jakarta.annotation.PreDestroy;
 import lombok.RequiredArgsConstructor;
+import org.springframework.ai.document.Document;
+import org.springframework.ai.reader.ExtractedTextFormatter;
+import org.springframework.ai.reader.pdf.PagePdfDocumentReader;
+import org.springframework.ai.reader.pdf.config.PdfDocumentReaderConfig;
+import org.springframework.ai.vectorstore.SearchRequest;
+import org.springframework.ai.vectorstore.SimpleVectorStore;
+import org.springframework.ai.vectorstore.VectorStore;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.core.io.PathResource;
 import org.springframework.core.io.Resource;
 import org.springframework.http.HttpStatus;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.util.StringUtils;
@@ -34,12 +46,24 @@ import java.util.UUID;
 @RequiredArgsConstructor
 public class LocalChatFileService implements ChatFileService {
 
+    private static final Logger log = LoggerFactory.getLogger(LocalChatFileService.class);
+
+    private static final String VECTOR_STORE_DATA_FILENAME = "simple-vector-store.json";
+
     private final ChatFileMapper chatFileMapper;
 
     private final ChatConversationManageService chatConversationManageService;
 
+    private final VectorStore vectorStore;
+
     @Value("${app.file-storage.root-dir:./data/chat-files}")
     private String storageRootDir;
+
+    @Value("${app.vector-store.delete-search-top-k:1000}")
+    private int vectorDeleteSearchTopK;
+
+    @Value("${app.vector-store.persist-root-dir:./data/vector-store}")
+    private String vectorStorePersistRootDir;
 
     @Override
     @Transactional
@@ -90,6 +114,21 @@ public class LocalChatFileService implements ChatFileService {
         entity.setFileSize(resolveFileSize(resource, targetFile));
         entity.setMetadata(Map.of());
         chatFileMapper.insert(entity);
+
+        // 解析pdf
+        PagePdfDocumentReader reader = new PagePdfDocumentReader(resource,
+                PdfDocumentReaderConfig.builder()
+                        .withPageExtractedTextFormatter(ExtractedTextFormatter.defaults())
+                        .build());
+        List<Document> documents = reader.read();
+        // 添加自定义属性
+        for (Document document : documents) {
+            Map<String, Object> metadata = document.getMetadata();
+            metadata.put(SystemConstant.VECTOR_CHAT_ID, conversationId);
+            metadata.put(SystemConstant.VECTOR_FILE_ID, fileId);
+        }
+        // 文件向量化存储
+        vectorStore.add(documents);
 
         return ChatFileUploadVo.builder()
                 .fileId(fileId)
@@ -163,6 +202,20 @@ public class LocalChatFileService implements ChatFileService {
             throw new BusinessException(HttpStatus.INTERNAL_SERVER_ERROR, "删除磁盘文件失败");
         }
         chatFileMapper.deleteById(fileId);
+        // SimpleVectorStore 不支持按过滤条件直接删除，先查询命中记录再按文档 ID 删除。
+        int deleteSearchTopK = Math.max(1, vectorDeleteSearchTopK);
+        List<String> documentIds = vectorStore.similaritySearch(SearchRequest.builder()
+                        .query(fileId)
+                        .topK(deleteSearchTopK)
+                        .filterExpression(SystemConstant.VECTOR_FILE_ID + " == '" + fileId + "'")
+                        .build())
+                .stream()
+                .map(Document::getId)
+                .filter(StringUtils::hasText)
+                .toList();
+        if (!documentIds.isEmpty()) {
+            vectorStore.delete(documentIds);
+        }
     }
 
     private static ChatFileListVo toListVo(ChatFile entity) {
@@ -241,6 +294,49 @@ public class LocalChatFileService implements ChatFileService {
             return root;
         } catch (IOException e) {
             throw new BusinessException(HttpStatus.INTERNAL_SERVER_ERROR, "初始化存储目录失败");
+        }
+    }
+
+    @PostConstruct
+    public void loadVectorData() {
+        if (!(vectorStore instanceof SimpleVectorStore simpleVectorStore)) {
+            log.info("当前 VectorStore 类型为 [{}]，跳过本地向量持久化加载", vectorStore.getClass().getSimpleName());
+            return;
+        }
+        Path dataFile = resolveVectorStoreDataFile();
+        if (!Files.exists(dataFile)) {
+            log.info("未找到向量持久化文件，跳过加载：{}", dataFile);
+            return;
+        }
+        try {
+            simpleVectorStore.load(dataFile.toFile());
+            log.info("向量持久化数据加载完成：{}", dataFile);
+        } catch (Exception e) {
+            log.error("加载向量持久化数据失败：{}", dataFile, e);
+        }
+    }
+
+    @PreDestroy
+    public void saveVectorData() {
+        if (!(vectorStore instanceof SimpleVectorStore simpleVectorStore)) {
+            return;
+        }
+        Path dataFile = resolveVectorStoreDataFile();
+        try {
+            simpleVectorStore.save(dataFile.toFile());
+            log.info("向量持久化数据保存完成：{}", dataFile);
+        } catch (Exception e) {
+            log.error("保存向量持久化数据失败：{}", dataFile, e);
+        }
+    }
+
+    private Path resolveVectorStoreDataFile() {
+        try {
+            Path root = Paths.get(vectorStorePersistRootDir).toAbsolutePath().normalize();
+            Files.createDirectories(root);
+            return root.resolve(VECTOR_STORE_DATA_FILENAME).normalize();
+        } catch (IOException e) {
+            throw new BusinessException(HttpStatus.INTERNAL_SERVER_ERROR, "初始化向量持久化目录失败");
         }
     }
 }

@@ -1,14 +1,14 @@
 <script setup lang="ts">
-import { computed, onBeforeUnmount, ref, watch } from 'vue';
 import { Refresh, Upload } from '@element-plus/icons-vue';
+import { computed, onBeforeUnmount, ref, watch } from 'vue';
 import { CHAT_PRODUCT_TYPE_KNOWLEDGE } from '../../constants/chat-product-types';
+import { confirmDanger } from '../../feedback';
 import {
   deleteChatFile,
   downloadChatFileBlob,
   fetchChatFilesByConversation,
   uploadChatFile,
 } from '../../services/chat';
-import { confirmDanger } from '../../feedback';
 import type { ChatFileListItem } from '../../types/chat-file';
 import { KnowledgeFileList, KnowledgePreviewDialog, useFilePreview } from './knowledge-panel';
 
@@ -119,7 +119,7 @@ onBeforeUnmount(() => {
 <template>
   <div class="kb">
     <header class="kb__header">
-      <h2 class="kb__title">会话资料</h2>
+      <h2 class="kb__title">知识库</h2>
       <el-button
         class="kb__refresh"
         size="small"

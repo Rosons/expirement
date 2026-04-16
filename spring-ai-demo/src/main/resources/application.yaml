@@ -25,6 +25,10 @@ spring:
       chat:
         options:
           model: glm-4.7
+      embedding:
+        options:
+          dimensions: 1024
+          model: text-embedding-v3
   servlet:
     multipart:
       max-file-size: 100MB
@@ -35,6 +39,11 @@ server:
 app:
   file-storage:
     root-dir: ${APP_FILE_STORAGE_ROOT:./data/chat-files}
+  vector-store:
+    # 向量持久化文件根路径（文件名固定为 simple-vector-store.json）
+    persist-root-dir: ${APP_VECTOR_STORE_ROOT:./data/vector-store}
+    # 删除文件时用于检索待删向量文档的上限；文档切片较多时可适当调大
+    delete-search-top-k: 1000
 
 mybatis-plus:
   configuration:

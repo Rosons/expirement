@@ -45,6 +45,23 @@
             <artifactId>spring-ai-starter-model-openai</artifactId>
         </dependency>
 
+        <!--SpringAI实现的本地向量化存储依赖-->
+        <dependency>
+            <groupId>org.springframework.ai</groupId>
+            <artifactId>spring-ai-vector-store</artifactId>
+        </dependency>
+        <!--SpringAI封装的自动RAG向量Advisors-->
+        <dependency>
+            <groupId>org.springframework.ai</groupId>
+            <artifactId>spring-ai-advisors-vector-store</artifactId>
+        </dependency>
+
+        <!--解析pdf的依赖-->
+        <dependency>
+            <groupId>org.springframework.ai</groupId>
+            <artifactId>spring-ai-pdf-document-reader</artifactId>
+        </dependency>
+
         <!--postgresql及管理依赖-->
         <dependency>
             <groupId>org.postgresql</groupId>

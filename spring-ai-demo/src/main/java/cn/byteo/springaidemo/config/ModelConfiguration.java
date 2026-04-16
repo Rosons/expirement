@@ -4,8 +4,11 @@ import cn.byteo.springaidemo.constant.SystemConstant;
 import org.springframework.ai.chat.client.ChatClient;
 import org.springframework.ai.chat.client.advisor.MessageChatMemoryAdvisor;
 import org.springframework.ai.chat.client.advisor.SimpleLoggerAdvisor;
+import org.springframework.ai.chat.client.advisor.vectorstore.QuestionAnswerAdvisor;
 import org.springframework.ai.chat.memory.ChatMemory;
 import org.springframework.ai.openai.OpenAiChatModel;
+import org.springframework.ai.vectorstore.SearchRequest;
+import org.springframework.ai.vectorstore.VectorStore;
 import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
@@ -77,14 +80,23 @@ public class ModelConfiguration {
 
     @Bean
     ChatClient knowledgeChatClient(OpenAiChatModel openAiChatModel,
-                              @Qualifier(value = "persistentChatMemory") ChatMemory chatMemory) {
+                                   @Qualifier(value = "persistentChatMemory") ChatMemory chatMemory,
+                                   VectorStore vectorStore) {
         return ChatClient.builder(openAiChatModel)
                 .defaultSystem(SystemConstant.SIMPLE_SYSTEM_PROMPT)
                 .defaultAdvisors(
                         // 添加打印日志的Advisor，方便观察对话过程
                         new SimpleLoggerAdvisor(),
                         // 添加基于消息窗口的记忆Advisor，保持对话上下文
-                        MessageChatMemoryAdvisor.builder(chatMemory).build()
+                        MessageChatMemoryAdvisor.builder(chatMemory).build(),
+                        // 添加支持问答（RAG）的Advisor
+                        QuestionAnswerAdvisor.builder(vectorStore)
+                                .searchRequest(SearchRequest
+                                        .builder()
+                                        .similarityThreshold(0.7)
+                                        .topK(2)
+                                        .build())
+                                .build()
                 )
                 .build();
     }

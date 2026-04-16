@@ -7,7 +7,9 @@ import cn.byteo.springaidemo.chat.service.ChatService;
 import cn.byteo.springaidemo.chat.vo.ChatConversationListVo;
 import cn.byteo.springaidemo.chat.vo.ChatMessageHistoryPageVo;
 import cn.byteo.springaidemo.common.web.ApiResponse;
+import cn.byteo.springaidemo.constant.SystemConstant;
 import org.springframework.ai.chat.client.ChatClient;
+import org.springframework.ai.chat.client.advisor.vectorstore.QuestionAnswerAdvisor;
 import org.springframework.ai.chat.memory.ChatMemory;
 import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.http.MediaType;
@@ -45,7 +47,11 @@ public class KnowledgeChatController {
     public Flux<String> chat(@ModelAttribute ChatStreamQueryRequest query) {
         chatConversationManageService.ensureConversationType(query.getChatId(), query.requireType());
         return chatClient.prompt()
+                // 传递会话ID
                 .advisors(p -> p.param(ChatMemory.CONVERSATION_ID, query.getChatId()))
+                // 动态传递向量查询条件
+                .advisors(p -> p.param(QuestionAnswerAdvisor.FILTER_EXPRESSION,
+                        SystemConstant.VECTOR_CHAT_ID + " == '"+ query.getChatId() +"'"))
                 .user(query.getMessage())
                 .stream()
                 .content();
