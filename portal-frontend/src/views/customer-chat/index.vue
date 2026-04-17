@@ -24,7 +24,7 @@ function readSessionIdFromRoute(): string {
 }
 
 const CUSTOMER_WELCOME =
-  '您好，我是智能客服助手，很高兴为您服务。请描述您遇到的问题，我会尽力协助。';
+  '您好呀，我是课程咨询助手小甜甜，很高兴为您服务。为了给您推荐更合适的课程，请先告诉我您的兴趣方向和学员学历，我再为您安排课程咨询和试听预约哦。';
 
 onMounted(async () => {
   let id = readSessionIdFromRoute();
@@ -45,8 +45,8 @@ onMounted(async () => {
       :show-new-conversation-button="false"
       :fixed-session-chat-id="sessionId"
       :local-welcome-assistant-message="CUSTOMER_WELCOME"
-      empty-title="开始咨询"
-      empty-description="在下方描述您的问题，我们会尽快为您处理。"
+      empty-title="开始课程咨询"
+      empty-description="请先告诉我您的兴趣方向和学员学历，我会为您推荐合适课程并协助试听预约。"
       composer-placeholder="描述您的问题，Enter 发送，Shift+Enter 换行"
     />
   </ChatPageLayout>

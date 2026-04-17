@@ -59,6 +59,8 @@ app:
 mybatis-plus:
   configuration:
     map-underscore-to-camel-case: true
+    # 1. 指定日志实现类为标准输出
+    log-impl: org.apache.ibatis.logging.stdout.StdOutImpl
   global-config:
     db-config:
       logic-delete-field: deleted

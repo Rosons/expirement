@@ -14,8 +14,8 @@
 --
 -- 字段约定：deleted 逻辑删除 0/1；时间戳 DEFAULT NOW()
 --
--- 学历等级（0～9 一位数，课程与学员须用同一套刻度；数值越大代表报名门槛越高）：
---   0 不限；1 高中及以上；2 大专及以上；3 本科及以上；4 硕士及以上；5～9 预留
+-- 学历等级（0～4 一位数，课程与学员须用同一套刻度；数值越大代表报名门槛越高）：
+--   0 不限；1 高中及以上；2 大专及以上；3 本科及以上；4 硕士及以上
 -- 课程表 min_education_level 表示「报名最低学历等级」。学员 user_education_level 与课程同标尺时，
 -- 可报名条件示例：WHERE min_education_level <= :userEducationLevel
 -- =============================================================================
@@ -44,7 +44,7 @@ COMMENT ON COLUMN edu_course.id IS '主键，自增';
 COMMENT ON COLUMN edu_course.course_code IS '业务唯一编码，用于导入与关联';
 COMMENT ON COLUMN edu_course.name IS '课程名称';
 COMMENT ON COLUMN edu_course.description IS '课程描述（面向学员的介绍文案，可含大纲要点）';
-COMMENT ON COLUMN edu_course.min_education_level IS '报名最低学历等级：0～9 一位数，与学员学历同标尺（0 不限，1 高中，2 大专，3 本科，4 硕士，5～9 预留）。';
+COMMENT ON COLUMN edu_course.min_education_level IS '报名最低学历等级：0～4 一位数，与学员学历同标尺（0 不限；1 高中及以上；2 大专及以上；3 本科及以上；4 硕士及以上）。';
 COMMENT ON COLUMN edu_course.price_cent IS '单价，单位分，避免浮点误差';
 COMMENT ON COLUMN edu_course.duration_hours IS '建议总课时（小时），可空';
 COMMENT ON COLUMN edu_course.category IS '业务分类编码，如 AI_DATA、BACKEND、FRONTEND';

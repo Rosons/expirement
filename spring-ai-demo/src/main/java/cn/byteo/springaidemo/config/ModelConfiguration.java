@@ -104,12 +104,13 @@ public class ModelConfiguration {
 
     @Bean
     ChatClient customerChatClient(OpenAiChatModel openAiChatModel,
-                                  @Qualifier(value = "persistentChatMemory") ChatMemory chatMemory) {
+                                  @Qualifier(value = "persistentChatMemory") ChatMemory chatMemory,
+                                  CustomerTool customerTool) {
         return ChatClient.builder(openAiChatModel)
                 // 这里可以配置默认的系统消息，或者其他全局参数
-                .defaultSystem(SystemConstant.SIMPLE_SYSTEM_PROMPT)
+                .defaultSystem(SystemConstant.SERVICE_SYSTEM_PROMPT)
                 // 添加一个自定义工具，提供大模型调用的接口，方便在对话中直接调用工具获取信息
-                // .defaultTools(customerTool)
+                .defaultTools(customerTool)
                 .defaultAdvisors(
                         // 添加打印日志的Advisor，方便观察对话过程
                         new SimpleLoggerAdvisor(),

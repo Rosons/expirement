@@ -1,6 +1,7 @@
 package cn.byteo.springaidemo.tools;
 
 import cn.byteo.springaidemo.edu.dto.CreateCourseBookingRequest;
+import cn.byteo.springaidemo.edu.dto.QueryEduCourseRequest;
 import cn.byteo.springaidemo.edu.entity.EduCampus;
 import cn.byteo.springaidemo.edu.entity.EduCampusCourse;
 import cn.byteo.springaidemo.edu.entity.EduCourse;
@@ -12,9 +13,11 @@ import cn.byteo.springaidemo.edu.service.impl.EduCourseServiceImpl;
 import cn.byteo.springaidemo.edu.vo.EduCampusVO;
 import cn.byteo.springaidemo.edu.vo.EduCourseVO;
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.ai.tool.annotation.Tool;
 import org.springframework.ai.tool.annotation.ToolParam;
 import org.springframework.stereotype.Component;
+import org.springframework.util.CollectionUtils;
 
 import java.util.List;
 import java.util.Map;
@@ -29,6 +32,7 @@ import java.util.stream.Collectors;
  */
 @Component
 @RequiredArgsConstructor
+@Slf4j
 public class CustomerTool {
 
     /** 课程服务 */
@@ -44,15 +48,46 @@ public class CustomerTool {
     private final EduCourseBookingServiceImpl eduCourseBookingService;
 
 
+    @Tool(name = "queryCourseInterestList",
+            description = "查询已有课程所属的全部兴趣列表")
+    List<String> queryCourseInterestList() {
+        return eduCourseService.lambdaQuery()
+                .select(EduCourse::getInterestTags)
+                .list()
+                .stream()
+                .flatMap(course -> course.getInterestTags().stream())
+                .distinct()
+                .toList();
+    }
+
+
     /**
-     * 按照学历信息查询课程列表
+     * 按照学历信息和兴趣方向查询课程列表
      */
-    @Tool(description = "按照学历信息查询课程列表，参数是学历层次，返回满足条件的课程列表")
-    List<EduCourseVO> queryCourseListByEducationLevel(@ToolParam(description = "") Integer educationLevel) {
+    @Tool(name = "queryCourseListByEducationLevel",
+            description = "根据学历信息和兴趣方向，查询满足条件的课程列表")
+    List<EduCourseVO> queryCourseListByEducationLevel(@ToolParam(description = "查询课程条件")
+                                                      QueryEduCourseRequest queryEduCourseRequest) {
+        // 用户学历等级
+        Integer educationLevel = queryEduCourseRequest.getEducationLevel();
+        // 用户感兴趣方向
+        List<String> interestDirections = queryEduCourseRequest.getInterestDirections();
+        if (!CollectionUtils.isEmpty(interestDirections)) {
+            log.info("查询课程列表，学历等级：{}，兴趣方向：{}", educationLevel, interestDirections);
+        }
         return eduCourseService.lambdaQuery()
                 .le(EduCourse::getMinEducationLevel, educationLevel)
                 .list()
                 .stream()
+                .filter(course -> {
+                    if (CollectionUtils.isEmpty(interestDirections)) {
+                        return true;
+                    }
+                    // 课程兴趣方向
+                    List<String> courseInterestTags = course.getInterestTags();
+                    // 判断课程兴趣方向与用户兴趣方向是否有交集
+                    return courseInterestTags.stream().anyMatch(interestDirections::contains);
+                })
                 .map(CustomerTool::toEduCourseVO)
                 .toList();
     }
@@ -60,7 +95,10 @@ public class CustomerTool {
     /**
      * 根据课程ID列表，查询提供该课程的校区列表
      */
-    Map<Long, List<EduCampusVO>> queryCampusListByCourseId(List<Long> courseIds) {
+    @Tool(name = "queryCampusListMapByCourseIds",
+            description = "根据课程ID列表，查询提供该课程的校区信息集合，返回每一个课程ID对应的校区信息列表")
+    Map<Long, List<EduCampusVO>> queryCampusListMapByCourseIds(@ToolParam(description = "课程ID列表")
+                                                               List<Long> courseIds) {
         Map<Long, List<Long>> courseIdToCampusIds = eduCampusCourseService.lambdaQuery()
                 .in(EduCampusCourse::getCourseId, courseIds)
                 .list()
@@ -93,7 +131,10 @@ public class CustomerTool {
     /**
      * 根据提交的预约信息列表，新增预约单
      */
-    String createCourseBooking(List<CreateCourseBookingRequest> bookingRequests) {
+    @Tool(name = "createCourseBooking",
+            description = "根据提交的预约信息列表，生成预约单，并返回预约单号")
+    String createCourseBooking(@ToolParam(description = "预约信息列表")
+                               List<CreateCourseBookingRequest> bookingRequests) {
         // 生成预约单号
         String bookingNo = "BK" + System.currentTimeMillis();
         for (CreateCourseBookingRequest request : bookingRequests) {
