@@ -31,8 +31,9 @@ export const products: ProductInfo[] = [
   {
     title: '智能客服',
     description: '通过聊天对话结合 Function Calling，完成问题分流、工单处理与业务动作自动执行。',
-    statusText: '规划中',
-    active: false,
+    route: '/products/customer-chat',
+    statusText: '已上线',
+    active: true,
   },
   {
     title: '流程智能体',

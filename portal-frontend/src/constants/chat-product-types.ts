@@ -8,3 +8,6 @@ export const CHAT_PRODUCT_TYPE_GAME_CHAT = 'game-chat';
 
 /** 与知识问答控制器会话维度一致 */
 export const CHAT_PRODUCT_TYPE_KNOWLEDGE = 'knowledge';
+
+/** 与 {@code CustomerController} 流式对话 `type`、会话落库类型一致 */
+export const CHAT_PRODUCT_TYPE_CUSTOMER = 'customer';

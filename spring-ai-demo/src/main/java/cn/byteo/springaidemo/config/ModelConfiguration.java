@@ -1,6 +1,7 @@
 package cn.byteo.springaidemo.config;
 
 import cn.byteo.springaidemo.constant.SystemConstant;
+import cn.byteo.springaidemo.tools.CustomerTool;
 import org.springframework.ai.chat.client.ChatClient;
 import org.springframework.ai.chat.client.advisor.MessageChatMemoryAdvisor;
 import org.springframework.ai.chat.client.advisor.SimpleLoggerAdvisor;
@@ -97,6 +98,23 @@ public class ModelConfiguration {
                                         .topK(2)
                                         .build())
                                 .build()
+                )
+                .build();
+    }
+
+    @Bean
+    ChatClient customerChatClient(OpenAiChatModel openAiChatModel,
+                                  @Qualifier(value = "persistentChatMemory") ChatMemory chatMemory) {
+        return ChatClient.builder(openAiChatModel)
+                // 这里可以配置默认的系统消息，或者其他全局参数
+                .defaultSystem(SystemConstant.SIMPLE_SYSTEM_PROMPT)
+                // 添加一个自定义工具，提供大模型调用的接口，方便在对话中直接调用工具获取信息
+                // .defaultTools(customerTool)
+                .defaultAdvisors(
+                        // 添加打印日志的Advisor，方便观察对话过程
+                        new SimpleLoggerAdvisor(),
+                        // 添加基于消息窗口的记忆Advisor，保持对话上下文
+                        MessageChatMemoryAdvisor.builder(chatMemory).build()
                 )
                 .build();
     }

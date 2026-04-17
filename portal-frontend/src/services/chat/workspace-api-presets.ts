@@ -1,4 +1,5 @@
 import {
+  CHAT_PRODUCT_TYPE_CUSTOMER,
   CHAT_PRODUCT_TYPE_GAME_CHAT,
   CHAT_PRODUCT_TYPE_GENERAL,
   CHAT_PRODUCT_TYPE_KNOWLEDGE,
@@ -7,11 +8,13 @@ import type { ChatWorkspaceApi } from '../../types/chat-workspace';
 import {
   fetchChatHistoryPage,
   fetchConversations,
+  fetchCustomerChatHistoryPage,
   fetchKnowledgeChatHistoryPage,
   fetchKnowledgeConversations,
 } from './chat-history-service';
 import {
   streamChatResponse,
+  streamCustomerChatResponse,
   streamKnowledgeChatResponse,
 } from './chat-stream-service';
 import { streamGameChatResponse } from './game-chat-service';
@@ -58,6 +61,19 @@ export const knowledgeChatWorkspaceApi: ChatWorkspaceApi = {
       {
         ...query,
         type: CHAT_PRODUCT_TYPE_KNOWLEDGE,
+      },
+      onChunk,
+      signal,
+    ),
+};
+
+export const customerChatWorkspaceApi: ChatWorkspaceApi = {
+  fetchHistoryPage: fetchCustomerChatHistoryPage,
+  streamChatResponse: (query, onChunk, signal) =>
+    streamCustomerChatResponse(
+      {
+        ...query,
+        type: CHAT_PRODUCT_TYPE_CUSTOMER,
       },
       onChunk,
       signal,

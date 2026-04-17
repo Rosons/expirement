@@ -1,4 +1,10 @@
-import { getChatConversationsUrl, getChatHistoryUrl, getKnowledgeChatConversationsUrl, getKnowledgeChatHistoryUrl } from '../../api/chat-endpoints';
+import {
+  getChatConversationsUrl,
+  getChatHistoryUrl,
+  getCustomerChatHistoryUrl,
+  getKnowledgeChatConversationsUrl,
+  getKnowledgeChatHistoryUrl,
+} from '../../api/chat-endpoints';
 import { CHAT_HISTORY_DEFAULT_PAGE, CHAT_HISTORY_PAGE_SIZE, getChatApiVersion } from '../../api/env';
 import type {
   ChatConversationListVo,
@@ -57,6 +63,20 @@ export async function fetchKnowledgeChatHistoryPage(query: ChatHistoryQueryReque
   const page = query.page ?? HISTORY_PAGE;
   const size = query.size ?? HISTORY_SIZE;
   const { data } = await apiClient.get<ChatMessageHistoryPageVo>(getKnowledgeChatHistoryUrl(), {
+    params: {
+      chatId: query.chatId,
+      page,
+      size,
+      order: 'desc',
+    },
+  });
+  return data;
+}
+
+export async function fetchCustomerChatHistoryPage(query: ChatHistoryQueryRequest): Promise<ChatMessageHistoryPageVo> {
+  const page = query.page ?? HISTORY_PAGE;
+  const size = query.size ?? HISTORY_SIZE;
+  const { data } = await apiClient.get<ChatMessageHistoryPageVo>(getCustomerChatHistoryUrl(), {
     params: {
       chatId: query.chatId,
       page,

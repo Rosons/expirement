@@ -1,4 +1,4 @@
-import { getChatStreamUrl, getKnowledgeChatStreamUrl } from '../../api/chat-endpoints';
+import { getChatStreamUrl, getCustomerChatApiRootUrl, getKnowledgeChatStreamUrl } from '../../api/chat-endpoints';
 import { notifyRequestFailure } from '../../feedback';
 import type { ChatStreamQueryRequest } from '../../types/chat';
 
@@ -101,6 +101,22 @@ export async function streamKnowledgeChatResponse(
 ): Promise<void> {
   try {
     await runStreamChatResponse(query, onChunk, getKnowledgeChatStreamUrl(), signal);
+  } catch (error) {
+    if (error instanceof DOMException && error.name === 'AbortError') {
+      throw error;
+    }
+    notifyRequestFailure(error);
+    throw error;
+  }
+}
+
+export async function streamCustomerChatResponse(
+  query: ChatStreamQueryRequest,
+  onChunk: (chunk: string) => void,
+  signal?: AbortSignal,
+): Promise<void> {
+  try {
+    await runStreamChatResponse(query, onChunk, getCustomerChatApiRootUrl(), signal);
   } catch (error) {
     if (error instanceof DOMException && error.name === 'AbortError') {
       throw error;

@@ -32,6 +32,10 @@ const props = withDefaults(
     emptyTitle?: string;
     emptyDescription?: string;
     composerPlaceholder?: string;
+    /** 仅加载该会话：不展示左侧列表时与路由会话 id 对齐 */
+    fixedSessionChatId?: string;
+    /** 历史为空时插入的本地客服欢迎语（不请求后端） */
+    localWelcomeAssistantMessage?: string;
   }>(),
   {
     showConversationSidebar: true,
@@ -43,6 +47,8 @@ const props = withDefaults(
     emptyTitle: '开始聊天',
     emptyDescription: '在下方输入你的问题，按 Enter 发送。',
     composerPlaceholder: '输入你的问题，Enter 发送，Shift+Enter 换行',
+    fixedSessionChatId: '',
+    localWelcomeAssistantMessage: '',
   },
 );
 const emit = defineEmits<{
@@ -75,6 +81,8 @@ const {
   chatBodyRef,
   resetUnreadState: () => resetUnreadStateImpl(),
   scrollToBottom: (options) => scrollToBottomImpl(options),
+  fixedSessionChatId: props.fixedSessionChatId,
+  localWelcomeAssistantMessage: props.localWelcomeAssistantMessage,
 });
 
 const {

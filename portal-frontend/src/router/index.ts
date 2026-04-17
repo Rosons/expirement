@@ -29,6 +29,11 @@ const router = createRouter({
       name: 'product-game-chat-play',
       component: () => import('../views/game-chat/index.vue'),
     },
+    {
+      path: '/products/customer-chat',
+      name: 'product-customer-chat',
+      component: () => import('../views/customer-chat/index.vue'),
+    },
   ],
 });
 

@@ -1,5 +1,6 @@
 package cn.byteo.springaidemo.common.entity;
 
+import cn.byteo.springaidemo.common.enums.LogicDeleteFlag;
 import com.baomidou.mybatisplus.annotation.FieldFill;
 import com.baomidou.mybatisplus.annotation.TableField;
 import com.baomidou.mybatisplus.annotation.TableLogic;
@@ -25,9 +26,9 @@ public abstract class BaseEntity implements Serializable {
     private LocalDateTime updatedAt;
 
     /**
-     * 逻辑删除：0 未删除，1 已删除（与全局 logic-delete-value 一致）
+     * 逻辑删除（与全局 {@code logic-not-delete-value} / {@code logic-delete-value} 一致）
      */
     @TableLogic
     @TableField("deleted")
-    private Integer deleted;
+    private LogicDeleteFlag deleted;
 }

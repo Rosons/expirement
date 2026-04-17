@@ -42,6 +42,15 @@ export function getKnowledgeChatStreamUrl(): string {
   return getKnowledgeChatApiRootUrl();
 }
 
+/** 后端 `CustomerController`：`/customer/ai/chat` */
+export function getCustomerChatApiRootUrl(): string {
+  return `${API_BASE_URL}/customer/ai/chat`;
+}
+
+export function getCustomerChatHistoryUrl(): string {
+  return `${getCustomerChatApiRootUrl()}/history`;
+}
+
 /** 后端 `ChatFileController` 的 `@RequestMapping("/ai/files")` 根路径（不含尾斜杠） */
 function chatFilesRootPath(): string {
   return `${API_BASE_URL}/ai/files`;
