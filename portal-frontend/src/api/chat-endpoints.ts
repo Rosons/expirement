@@ -25,6 +25,10 @@ export function getGameChatStreamUrl(): string {
   return `${API_BASE_URL}/game/ai/chat`;
 }
 
+export function getGameChatHistoryUrl(): string {
+  return `${API_BASE_URL}/game/ai/chat/history`;
+}
+
 /** {@link KnowledgeChatController}：`/knowledge/ai/chat` */
 export function getKnowledgeChatApiRootUrl(): string {
   return `${API_BASE_URL}/knowledge/ai/chat`;

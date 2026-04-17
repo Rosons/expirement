@@ -1,9 +1,9 @@
+import ElementPlus from 'element-plus';
+import 'element-plus/dist/index.css';
+import 'highlight.js/styles/atom-one-dark.css';
 import { createApp } from 'vue';
 import App from './App.vue';
 import router from './router';
-import 'element-plus/es/components/message/style/css';
-import 'element-plus/es/components/message-box/style/css';
-import 'highlight.js/styles/atom-one-dark.css';
 import './style.css';
 
-createApp(App).use(router).mount('#app');
+createApp(App).use(router).use(ElementPlus).mount('#app');

@@ -9,6 +9,7 @@ import {
   fetchChatHistoryPage,
   fetchConversations,
   fetchCustomerChatHistoryPage,
+  fetchGameChatHistoryPage,
   fetchKnowledgeChatHistoryPage,
   fetchKnowledgeConversations,
 } from './chat-history-service';
@@ -38,6 +39,7 @@ export const generalChatWorkspaceApi: ChatWorkspaceApi = {
 };
 
 export const gameChatWorkspaceApi: ChatWorkspaceApi = {
+  fetchHistoryPage: fetchGameChatHistoryPage,
   streamChatResponse: (query, onChunk, signal) =>
     streamGameChatResponse(
       {

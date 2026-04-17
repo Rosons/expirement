@@ -1,7 +1,6 @@
 <script setup lang="ts">
-import { ArrowLeft } from '@element-plus/icons-vue';
 import { computed } from 'vue';
-import { useRouter } from 'vue-router';
+import BackButton from './BackButton.vue';
 
 const props = withDefaults(
   defineProps<{
@@ -17,7 +16,6 @@ const props = withDefaults(
   },
 );
 
-const router = useRouter();
 const layoutStyle = computed(() => ({
   '--chat-page-max-width': props.maxWidth,
 }));
@@ -26,9 +24,7 @@ const layoutStyle = computed(() => ({
 <template>
   <main class="chat-page" :style="layoutStyle">
     <header class="page-header">
-      <el-button class="back-button" :icon="ArrowLeft" @click="router.push(props.backTo)">
-        {{ props.backText }}
-      </el-button>
+      <BackButton :to="props.backTo" :text="props.backText" />
       <div class="page-title">
         <div class="page-title-line">
           <h1>{{ props.title }}</h1>
@@ -98,45 +94,6 @@ const layoutStyle = computed(() => ({
   border-radius: 50%;
   background: rgba(148, 163, 184, 0.9);
   flex-shrink: 0;
-}
-
-.back-button {
-  min-height: 40px;
-  border: 1px solid #dbe4ee;
-  background: #ffffff;
-  color: #334155;
-  border-radius: 999px;
-  padding: 6px 14px 6px 10px;
-  cursor: pointer;
-  box-shadow: 0 6px 16px rgba(15, 23, 42, 0.05);
-  font-size: 14px;
-  font-weight: 600;
-  letter-spacing: 0.01em;
-  transition:
-    color 0.18s ease,
-    border-color 0.18s ease,
-    box-shadow 0.18s ease,
-    background-color 0.18s ease;
-}
-
-.back-button :deep(.el-icon) {
-  margin-right: 2px;
-  font-size: 13px;
-}
-
-.back-button:hover {
-  border-color: #bfdbfe;
-  background-color: #eff6ff;
-  color: #1d4ed8;
-  box-shadow: 0 8px 18px rgba(59, 130, 246, 0.14);
-}
-
-.back-button:focus-visible {
-  outline: none;
-  border-color: #93c5fd;
-  box-shadow:
-    0 0 0 3px rgba(59, 130, 246, 0.16),
-    0 8px 18px rgba(59, 130, 246, 0.12);
 }
 
 @media (max-width: 720px) {

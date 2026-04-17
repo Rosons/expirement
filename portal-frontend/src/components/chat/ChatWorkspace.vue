@@ -189,7 +189,10 @@ onMounted(() => {
   void (async () => {
     await bootstrapChatState();
     const entryMessage = props.initialMessage.trim();
-    if (!consumedInitialMessage.value && entryMessage) {
+    const hasFixedSession = !!props.fixedSessionChatId?.trim();
+    const hasHistoryMessages = messages.value.length > 0;
+    // 固定会话且已有历史消息时，不发送 initialMessage（避免从 URL 分享的会话重复发送 gameStart）
+    if (!consumedInitialMessage.value && entryMessage && !(hasFixedSession && hasHistoryMessages)) {
       consumedInitialMessage.value = true;
       await sendMessageContent(entryMessage, 'initial');
     }

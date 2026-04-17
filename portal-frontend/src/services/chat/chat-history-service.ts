@@ -2,6 +2,7 @@ import {
   getChatConversationsUrl,
   getChatHistoryUrl,
   getCustomerChatHistoryUrl,
+  getGameChatHistoryUrl,
   getKnowledgeChatConversationsUrl,
   getKnowledgeChatHistoryUrl,
 } from '../../api/chat-endpoints';
@@ -77,6 +78,20 @@ export async function fetchCustomerChatHistoryPage(query: ChatHistoryQueryReques
   const page = query.page ?? HISTORY_PAGE;
   const size = query.size ?? HISTORY_SIZE;
   const { data } = await apiClient.get<ChatMessageHistoryPageVo>(getCustomerChatHistoryUrl(), {
+    params: {
+      chatId: query.chatId,
+      page,
+      size,
+      order: 'desc',
+    },
+  });
+  return data;
+}
+
+export async function fetchGameChatHistoryPage(query: ChatHistoryQueryRequest): Promise<ChatMessageHistoryPageVo> {
+  const page = query.page ?? HISTORY_PAGE;
+  const size = query.size ?? HISTORY_SIZE;
+  const { data } = await apiClient.get<ChatMessageHistoryPageVo>(getGameChatHistoryUrl(), {
     params: {
       chatId: query.chatId,
       page,

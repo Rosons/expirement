@@ -66,7 +66,7 @@ public class ModelConfiguration {
 
     @Bean
     ChatClient gameChatClient(OpenAiChatModel openAiChatModel,
-                                  @Qualifier(value = "simpleChatMemory") ChatMemory chatMemory) {
+                                  @Qualifier(value = "persistentChatMemory") ChatMemory chatMemory) {
         return ChatClient.builder(openAiChatModel)
                 .defaultSystem(SystemConstant.GAME_SYSTEM_PROMPT)
                 .defaultAdvisors(

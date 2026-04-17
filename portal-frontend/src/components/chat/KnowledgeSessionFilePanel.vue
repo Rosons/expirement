@@ -152,11 +152,11 @@ onBeforeUnmount(() => {
         :disabled="!canUploadFiles || isUploading"
         @change="onFileInputChange"
       />
-      <div v-if="!hasConversation" class="kb__drop-inner kb__drop-inner--muted">
+      <!-- <div v-if="!hasConversation" class="kb__drop-inner kb__drop-inner--muted">
         <span class="kb__drop-emoji" aria-hidden="true">📂</span>
         <p>请先在左侧选择或创建会话</p>
-      </div>
-      <div v-else class="kb__drop-inner">
+      </div> -->
+      <div class="kb__drop-inner">
         <p class="kb__drop-line">拖拽文件到此处，或点击下方按钮</p>
         <p class="kb__drop-note">单次可上传多个文件，上传后可直接预览与下载</p>
         <el-button type="default" class="kb__btn-primary" :icon="Upload" :loading="isUploading" @click="fileInputRef?.click()">
