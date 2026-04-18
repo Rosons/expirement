@@ -71,14 +71,12 @@ export async function deleteChatFile(fileId: string, conversationId: string): Pr
   });
 }
 
-export async function downloadChatFileBlob(fileId: string): Promise<Blob> {
-  const response = await fetch(getChatFileDownloadUrl(fileId), {
-    method: 'GET',
-    cache: 'no-store',
-  });
+/** 文本类预览：仅拉取字符串，避免先整包 blob 再解码 */
+export async function fetchChatFileText(fileId: string): Promise<string> {
+  const response = await fetch(getChatFileDownloadUrl(fileId), { method: 'GET' });
   if (!response.ok) {
     const message = await response.text().catch(() => '');
-    throw new Error(`下载文件失败：${response.status}${message ? `，${message.slice(0, 120)}` : ''}`);
+    throw new Error(`读取文件失败：${response.status}${message ? `，${message.slice(0, 120)}` : ''}`);
   }
-  return await response.blob();
+  return await response.text();
 }

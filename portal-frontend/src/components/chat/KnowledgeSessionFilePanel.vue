@@ -3,12 +3,7 @@ import { Refresh, Upload } from '@element-plus/icons-vue';
 import { computed, onBeforeUnmount, ref, watch } from 'vue';
 import { CHAT_PRODUCT_TYPE_KNOWLEDGE } from '../../constants/chat-product-types';
 import { confirmDanger } from '../../feedback';
-import {
-  deleteChatFile,
-  downloadChatFileBlob,
-  fetchChatFilesByConversation,
-  uploadChatFile,
-} from '../../services/chat';
+import { deleteChatFile, fetchChatFilesByConversation, uploadChatFile } from '../../services/chat';
 import type { ChatFileListItem } from '../../types/chat-file';
 import { KnowledgeFileList, KnowledgePreviewDialog, useFilePreview } from './knowledge-panel';
 
@@ -36,7 +31,7 @@ const {
   closePreview,
   handleDownload,
   handlePreview,
-} = useFilePreview(downloadChatFileBlob);
+} = useFilePreview();
 
 async function loadFiles(): Promise<void> {
   if (!hasConversation.value) {

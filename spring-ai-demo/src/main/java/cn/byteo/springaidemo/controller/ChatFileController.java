@@ -54,26 +54,47 @@ public class ChatFileController {
         return ApiResponse.ok(chatFileService.upload(conversationId, type, file.getResource(), true));
     }
 
-    /** 下载已存储文件（二进制流）。 */
+    /**
+     * 下载或内联预览已存储文件。
+     * <p>
+     * {@code inline=true} 时使用 {@code Content-Disposition: inline} 与库内记录的 Content-Type，
+     * 供 {@code <img>} / {@code <iframe>} 预览；默认 {@code attachment} + {@code application/octet-stream} 供「另存为」下载。
+     * </p>
+     */
     @GetMapping("/download/{fileId}")
-    public ResponseEntity<Resource> download(@PathVariable(value = "fileId") String fileId) {
+    public ResponseEntity<Resource> download(
+            @PathVariable(value = "fileId") String fileId,
+            @RequestParam(value = "inline", defaultValue = "false") boolean inline) {
         ChatFile chatFile = chatFileService.getChatFile(fileId);
         Resource resource = chatFileService.loadResource(chatFile);
-        ContentDisposition disposition = ContentDisposition.attachment()
-                .filename(resolveFilename(chatFile), StandardCharsets.UTF_8)
-                .build();
+        String filename = resolveFilename(chatFile);
+        ContentDisposition disposition = inline
+                ? ContentDisposition.inline().filename(filename, StandardCharsets.UTF_8).build()
+                : ContentDisposition.attachment().filename(filename, StandardCharsets.UTF_8).build();
+        MediaType bodyType = inline ? resolveMediaType(chatFile) : MediaType.APPLICATION_OCTET_STREAM;
         try {
             return ResponseEntity.ok()
-                    .contentType(MediaType.APPLICATION_OCTET_STREAM)
+                    .contentType(bodyType)
                     .contentLength(resource.contentLength())
                     .header(HttpHeaders.CONTENT_DISPOSITION, disposition.toString())
                     .body(resource);
         } catch (IOException e) {
             return ResponseEntity.ok()
-                    .contentType(MediaType.APPLICATION_OCTET_STREAM)
+                    .contentType(bodyType)
                     .header(HttpHeaders.CONTENT_DISPOSITION, disposition.toString())
                     .body(resource);
         }
+    }
+
+    private static MediaType resolveMediaType(ChatFile chatFile) {
+        if (StringUtils.hasText(chatFile.getContentType())) {
+            try {
+                return MediaType.parseMediaType(chatFile.getContentType().trim());
+            } catch (Exception ignored) {
+                // fall through
+            }
+        }
+        return MediaType.APPLICATION_OCTET_STREAM;
     }
 
     /**

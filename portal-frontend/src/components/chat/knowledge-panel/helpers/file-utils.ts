@@ -38,33 +38,94 @@ export function fileExtension(name: string): string {
   return name.slice(index + 1).toUpperCase().slice(0, 4);
 }
 
-function guessMimeFromFilename(name: string): string | undefined {
-  const lower = name.toLowerCase();
-  if (lower.endsWith('.pdf')) {
-    return 'application/pdf';
+/** 与后端 `FileExtensionMimeTypeUtils` 中 `EXTENSION_TO_MIME` 静态表一致（仅映射表，不含 JDK 二次猜测）。 */
+const EXTENSION_TO_MIME: Readonly<Record<string, string>> = {
+  jpg: 'image/jpeg',
+  jpeg: 'image/jpeg',
+  png: 'image/png',
+  gif: 'image/gif',
+  webp: 'image/webp',
+  bmp: 'image/bmp',
+  svg: 'image/svg+xml',
+  ico: 'image/x-icon',
+  tif: 'image/tiff',
+  tiff: 'image/tiff',
+  heic: 'image/heic',
+  avif: 'image/avif',
+  mp3: 'audio/mp3',
+  wav: 'audio/wav',
+  ogg: 'audio/ogg',
+  oga: 'audio/ogg',
+  m4a: 'audio/mp4',
+  aac: 'audio/aac',
+  flac: 'audio/flac',
+  opus: 'audio/opus',
+  mp4: 'video/mp4',
+  webm: 'video/webm',
+  ogv: 'video/ogg',
+  mov: 'video/quicktime',
+  avi: 'video/x-msvideo',
+  mkv: 'video/x-matroska',
+  m4v: 'video/x-m4v',
+  pdf: 'application/pdf',
+  doc: 'application/msword',
+  docx: 'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+  xls: 'application/vnd.ms-excel',
+  xlsx: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+  ppt: 'application/vnd.ms-powerpoint',
+  pptx: 'application/vnd.openxmlformats-officedocument.presentationml.presentation',
+  csv: 'text/csv',
+  md: 'text/markdown',
+  markdown: 'text/markdown',
+  txt: 'text/plain',
+  html: 'text/html',
+  htm: 'text/html',
+  css: 'text/css',
+  js: 'text/javascript',
+  mjs: 'text/javascript',
+  json: 'application/json',
+  jsonl: 'application/x-ndjson',
+  xml: 'application/xml',
+  yaml: 'application/yaml',
+  yml: 'application/yaml',
+  zip: 'application/zip',
+  rar: 'application/vnd.rar',
+  '7z': 'application/x-7z-compressed',
+  tar: 'application/x-tar',
+  gz: 'application/gzip',
+};
+
+/** 与 {@code FileExtensionMimeTypeUtils#normalizeExtension} 对齐：取路径最后一段、再取最后一个 `.` 后的小写后缀 */
+function normalizeExtension(filenameOrExtension: string): string {
+  const raw = filenameOrExtension.trim();
+  if (!raw) {
+    return '';
   }
-  if (lower.endsWith('.png')) {
-    return 'image/png';
+  let s = raw;
+  const slash = Math.max(s.lastIndexOf('/'), s.lastIndexOf('\\'));
+  if (slash >= 0 && slash < s.length - 1) {
+    s = s.slice(slash + 1);
   }
-  if (lower.endsWith('.jpg') || lower.endsWith('.jpeg')) {
-    return 'image/jpeg';
+  const dot = s.lastIndexOf('.');
+  if (dot < 0 || dot === s.length - 1) {
+    if (s.startsWith('.') && s.length > 1) {
+      return s.slice(1).toLowerCase();
+    }
+    return s.toLowerCase();
   }
-  if (lower.endsWith('.gif')) {
-    return 'image/gif';
+  return s.slice(dot + 1).toLowerCase();
+}
+
+/**
+ * 按后缀从 `EXTENSION_TO_MIME` 推断 MIME；未知后缀返回 `undefined`（由调用方兜底 `application/octet-stream`）。
+ * 入参可为完整路径、文件名或单独扩展名（与后端 `getMimeTypeFromExtension` 映射阶段一致）。
+ */
+export function guessMimeFromFilename(filenameOrExtension: string): string | undefined {
+  const ext = normalizeExtension(filenameOrExtension);
+  if (!ext) {
+    return undefined;
   }
-  if (lower.endsWith('.webp')) {
-    return 'image/webp';
-  }
-  if (lower.endsWith('.txt') || lower.endsWith('.md') || lower.endsWith('.log')) {
-    return 'text/plain';
-  }
-  if (lower.endsWith('.json')) {
-    return 'application/json';
-  }
-  if (lower.endsWith('.csv')) {
-    return 'text/csv';
-  }
-  return undefined;
+  return EXTENSION_TO_MIME[ext];
 }
 
 export function effectiveContentType(file: ChatFileListItem): string {

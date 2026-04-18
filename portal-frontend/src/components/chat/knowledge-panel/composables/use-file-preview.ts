@@ -1,23 +1,24 @@
 import { ref } from 'vue';
+import { getChatFileDownloadUrl, getChatFilePreviewUrl } from '../../../../api/chat-endpoints';
+import { fetchChatFileText } from '../../../../services/chat/chat-file-service';
 import type { ChatFileListItem } from '../../../../types/chat-file';
 import { effectiveContentType } from '../helpers/file-utils';
 
 type PreviewKind = 'image' | 'pdf' | 'text' | 'unsupported';
 
-export function useFilePreview(downloadById: (fileId: string) => Promise<Blob>) {
+/**
+ * 下载用 attachment 直链；预览用 `?inline=1`（后端 inline + 正确 Content-Type），避免 img/iframe 被当成附件触发下载。
+ * 文本预览仍 fetch 为字符串。
+ */
+export function useFilePreview() {
   const previewOpen = ref(false);
   const previewTitle = ref('');
   const previewKind = ref<PreviewKind>('unsupported');
   const previewText = ref('');
   const previewImageUrl = ref('');
   const previewPdfUrl = ref('');
-  let previewObjectUrl: string | null = null;
 
   function revokePreviewUrl(): void {
-    if (previewObjectUrl) {
-      URL.revokeObjectURL(previewObjectUrl);
-      previewObjectUrl = null;
-    }
     previewImageUrl.value = '';
     previewPdfUrl.value = '';
     previewText.value = '';
@@ -28,11 +29,8 @@ export function useFilePreview(downloadById: (fileId: string) => Promise<Blob>) 
     revokePreviewUrl();
   }
 
-  async function handleDownload(file: ChatFileListItem): Promise<void> {
-    const blob = await downloadById(file.fileId);
-    const mime = effectiveContentType(file);
-    const typed = blob.type && blob.type !== 'application/octet-stream' ? blob : new Blob([blob], { type: mime });
-    const url = URL.createObjectURL(typed);
+  function handleDownload(file: ChatFileListItem): void {
+    const url = getChatFileDownloadUrl(file.fileId);
     const anchor = document.createElement('a');
     anchor.href = url;
     anchor.download = file.originalFilename || 'download';
@@ -40,36 +38,31 @@ export function useFilePreview(downloadById: (fileId: string) => Promise<Blob>) 
     document.body.appendChild(anchor);
     anchor.click();
     anchor.remove();
-    setTimeout(() => URL.revokeObjectURL(url), 2_000);
   }
 
   async function handlePreview(file: ChatFileListItem): Promise<void> {
     closePreview();
     previewTitle.value = file.originalFilename;
-    const blob = await downloadById(file.fileId);
     const mime = effectiveContentType(file);
-    const typed = blob.type && blob.type !== 'application/octet-stream' ? blob : new Blob([blob], { type: mime });
+    const previewUrl = getChatFilePreviewUrl(file.fileId);
 
     if (mime.startsWith('image/')) {
       previewKind.value = 'image';
-      previewObjectUrl = URL.createObjectURL(typed);
-      previewImageUrl.value = previewObjectUrl;
+      previewImageUrl.value = previewUrl;
       previewOpen.value = true;
       return;
     }
 
     if (mime === 'application/pdf' || file.originalFilename.toLowerCase().endsWith('.pdf')) {
-      const pdfBlob = new Blob([await typed.arrayBuffer()], { type: 'application/pdf' });
       previewKind.value = 'pdf';
-      previewObjectUrl = URL.createObjectURL(pdfBlob);
-      previewPdfUrl.value = previewObjectUrl;
+      previewPdfUrl.value = previewUrl;
       previewOpen.value = true;
       return;
     }
 
     if (mime.startsWith('text/') || mime === 'application/json' || mime === 'application/csv') {
       previewKind.value = 'text';
-      previewText.value = await typed.text();
+      previewText.value = await fetchChatFileText(file.fileId);
       previewOpen.value = true;
       return;
     }

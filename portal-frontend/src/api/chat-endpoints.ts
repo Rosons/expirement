@@ -69,9 +69,14 @@ export function getChatFilesListUrl(): string {
   return chatFilesRootPath();
 }
 
-/** GET：下载/预览（`ChatFileController` `/download/{fileId}`，fetch 直连） */
+/** GET：下载（`attachment`，供「下载」按钮） */
 export function getChatFileDownloadUrl(fileId: string): string {
   return `${chatFilesRootPath()}/download/${encodeURIComponent(fileId)}`;
+}
+
+/** GET：内联预览（`?inline=1`，`inline` + 真实 Content-Type，供 img/iframe） */
+export function getChatFilePreviewUrl(fileId: string): string {
+  return `${getChatFileDownloadUrl(fileId)}?inline=1`;
 }
 
 /** DELETE：按 id 删除（`/ai/files/{fileId}`，`conversationId` 由 axios params 传入） */
