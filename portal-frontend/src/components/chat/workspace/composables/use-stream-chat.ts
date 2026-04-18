@@ -1,9 +1,10 @@
 import { nextTick, ref, type Ref } from 'vue';
-import type { ConversationListItem, UiChatMessage } from '../../../../types/chat';
+import type { ConversationListItem, PendingAttachment, UiChatMessage } from '../../../../types/chat';
 import type { ChatWorkspaceApi } from '../../../../types/chat-workspace';
 import {
   appendAssistantChunk,
   buildUiMessage,
+  buildUserMessageWithParts,
   createChatId,
   finalizeAssistantMessage,
 } from '../helpers/chat-workspace-helpers';
@@ -41,9 +42,14 @@ export function useStreamChat(options: UseStreamChatOptions) {
   const manualStopRequested = ref(false);
   const abortController = ref<AbortController | null>(null);
 
-  async function sendMessageContent(rawContent: string, source: SendSource = 'user'): Promise<void> {
+  async function sendMessageContent(
+    rawContent: string,
+    source: SendSource = 'user',
+    files: PendingAttachment[] = [],
+  ): Promise<void> {
     const userInput = rawContent.trim();
-    if (!userInput || isSending.value) {
+    const hasFiles = files && files.length > 0;
+    if ((!userInput && !hasFiles) || isSending.value) {
       return;
     }
 
@@ -53,13 +59,13 @@ export function useStreamChat(options: UseStreamChatOptions) {
     }
     options.onBeforeSend({ chatId, message: userInput, source });
 
-    const userMessage = buildUiMessage('user', userInput);
+    const userMessage = hasFiles ? buildUserMessageWithParts(userInput, files) : buildUiMessage('user', userInput);
     const assistantMessage = buildUiMessage('assistant', '', true);
     options.messages.value.push(userMessage, assistantMessage);
     options.draft.value = '';
     isSending.value = true;
     manualStopRequested.value = false;
-    requestStatus.value = '请求已发送，等待 AI 响应...';
+    requestStatus.value = hasFiles ? '正在发送...' : '请求已发送，等待 AI 响应...';
     options.resetUnreadState();
     options.scrollToBottom({ immediate: true, retryCount: 3, force: true });
     nextTick(options.adjustComposerHeight);
@@ -68,8 +74,9 @@ export function useStreamChat(options: UseStreamChatOptions) {
     abortController.value = controller;
 
     try {
+      // 文件随聊天消息一起发送（由后端统一处理存储）
       await options.chatApi.streamChatResponse(
-        { chatId, message: userInput },
+        { chatId, message: userInput, files: hasFiles ? files.map((f) => f.file) : undefined },
         (chunk) => {
           appendAssistantChunk(options.messages.value, assistantMessage.id, chunk);
           requestStatus.value = 'AI 正在生成中...';

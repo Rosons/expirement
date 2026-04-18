@@ -43,5 +43,6 @@ export function mapHistoryRecordsToUi(records: ChatMessageHistoryVo[], chatId: s
     role: mapMessageTypeToRole(item.role),
     content: resolveMessageBody(item),
     createdAt: parseBackendDateToMillis(item.createdAt),
+    parts: item.parts && item.parts.length > 0 ? item.parts : undefined,
   }));
 }

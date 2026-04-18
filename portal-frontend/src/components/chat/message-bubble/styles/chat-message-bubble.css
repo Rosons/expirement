@@ -365,6 +365,128 @@
   text-decoration: underline;
 }
 
+/* 附件区域样式 */
+.bubble-parts {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-bottom: 4px;
+  max-width: 560px;
+}
+
+.part-image-wrap {
+  border-radius: 12px;
+  overflow: hidden;
+  border: 1px solid rgba(148, 163, 184, 0.24);
+  background: #f1f5f9;
+  /* 默认自适应宽度 */
+  flex: 0 0 auto;
+  max-width: 100%;
+}
+
+/* 单张图：居中，最大 280px */
+.bubble-parts:has(.part-image-wrap:nth-child(1)):not(:has(.part-image-wrap:nth-child(2))) .part-image-wrap {
+  flex: 0 0 280px;
+  margin: 0 auto;
+}
+
+/* 两张图：各占一半 */
+.bubble-parts:has(.part-image-wrap:nth-child(2)):not(:has(.part-image-wrap:nth-child(3))) .part-image-wrap {
+  flex: 0 0 calc(50% - 4px);
+}
+
+/* 三张及以上：九宫格，每行三张 */
+.bubble-parts:has(.part-image-wrap:nth-child(3)) .part-image-wrap {
+  flex: 0 0 calc(33.333% - 6px);
+}
+
+.part-image {
+  display: block;
+  width: 100%;
+  height: auto;
+}
+
+.part-media-wrap {
+  border-radius: 12px;
+  overflow: hidden;
+  border: 1px solid rgba(148, 163, 184, 0.24);
+  background: #0f172a;
+  flex: 0 0 auto;
+  max-width: 100%;
+}
+
+/* 音频：不要外框，与气泡背景融为一体（视频仍用深色底+边框） */
+.part-media-wrap:has(audio.part-media) {
+  background: transparent;
+  border: none;
+  box-shadow: none;
+  border-radius: 0;
+  overflow: visible;
+}
+
+.part-media-wrap:has(audio.part-media) .part-media {
+  outline: none;
+  vertical-align: middle;
+}
+
+.bubble-parts:has(.part-media-wrap:nth-child(1)):not(:has(.part-media-wrap:nth-child(2))) .part-media-wrap {
+  flex: 0 0 360px;
+  margin: 0 auto;
+}
+
+.bubble-parts:has(.part-media-wrap:nth-child(2)):not(:has(.part-media-wrap:nth-child(3))) .part-media-wrap {
+  flex: 0 0 calc(50% - 4px);
+}
+
+.bubble-parts:has(.part-media-wrap:nth-child(3)) .part-media-wrap {
+  flex: 0 0 calc(33.333% - 6px);
+}
+
+.part-media {
+  display: block;
+  width: 100%;
+  max-height: 240px;
+}
+
+.part-file {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 12px;
+  border-radius: 10px;
+  border: 1px solid rgba(148, 163, 184, 0.3);
+  background: rgba(248, 250, 252, 0.95);
+  font-size: 13px;
+  color: #334155;
+}
+
+.part-file__icon {
+  font-size: 16px;
+  color: #475569;
+  flex-shrink: 0;
+}
+
+.part-file__label {
+  font-weight: 500;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  max-width: 200px;
+}
+
+.part-file__link {
+  margin-left: auto;
+  flex-shrink: 0;
+  font-size: 12px;
+  color: #2563eb;
+  text-decoration: none;
+  font-weight: 600;
+}
+
+.part-file__link:hover {
+  text-decoration: underline;
+}
+
 @media (max-width: 720px) {
   .message-row {
     gap: 10px;
@@ -382,6 +504,14 @@
 
   .bubble-meta {
     padding: 0 2px;
+  }
+
+  .part-image-wrap {
+    max-width: 200px;
+  }
+
+  .part-media-wrap {
+    max-width: 260px;
   }
 }
 

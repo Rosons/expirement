@@ -2,7 +2,9 @@ package cn.byteo.springaidemo.config;
 
 import cn.byteo.springaidemo.chat.mapper.ChatConversationMapper;
 import cn.byteo.springaidemo.chat.mapper.ChatMessageMapper;
+import cn.byteo.springaidemo.chat.mapper.ChatMessagePartMapper;
 import cn.byteo.springaidemo.chat.memory.PersistentChatMemory;
+import cn.byteo.springaidemo.chat.service.ChatFileService;
 import cn.byteo.springaidemo.constant.SystemConstant;
 import org.springframework.ai.chat.memory.ChatMemory;
 import org.springframework.ai.chat.memory.ChatMemoryRepository;
@@ -39,8 +41,10 @@ public class ChatMemoryConfiguration {
 
     @Bean
     ChatMemory persistentChatMemory(ChatConversationMapper chatConversationMapper,
-                                    ChatMessageMapper chatMessageMapper) {
+                                    ChatMessageMapper chatMessageMapper,
+                                    ChatMessagePartMapper chatMessagePartMapper,
+                                    ChatFileService chatFileService) {
         // 这里可以返回一个基于数据库的ChatMemory实现
-        return new PersistentChatMemory(chatConversationMapper, chatMessageMapper);
+        return new PersistentChatMemory(chatConversationMapper, chatMessageMapper, chatMessagePartMapper, chatFileService);
     }
 }

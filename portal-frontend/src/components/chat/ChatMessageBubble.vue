@@ -1,6 +1,7 @@
 <script setup lang="ts">
-import { CopyDocument, RefreshRight } from '@element-plus/icons-vue';
+import { CopyDocument, RefreshRight, Picture, Document, VideoCamera, Headset } from '@element-plus/icons-vue';
 import type { ChatRole } from '../../types/chat';
+import type { ChatMessagePartVo } from '../../types/chat';
 import { useMessageBubble } from './message-bubble';
 
 const props = withDefaults(
@@ -12,10 +13,12 @@ const props = withDefaults(
     streaming?: boolean;
     enableCopyAction?: boolean;
     enableResendAction?: boolean;
+    parts?: ChatMessagePartVo[];
   }>(),
   {
     enableCopyAction: true,
     enableResendAction: true,
+    parts: () => [],
   },
 );
 const emit = defineEmits<{
@@ -36,6 +39,45 @@ const {
 } = useMessageBubble(props, (content) => {
   emit('resendMessage', content);
 });
+
+function isImagePart(part: ChatMessagePartVo): boolean {
+  const mime = part.mimeType ?? '';
+  return (
+    mime.startsWith('image/') || Boolean(part.mediaUrl && /\.(jpg|jpeg|png|gif|webp|svg|bmp)$/i.test(part.mediaUrl))
+  );
+}
+
+function isVideoPart(part: ChatMessagePartVo): boolean {
+  const mime = part.mimeType ?? '';
+  return (
+    mime.startsWith('video/') || Boolean(part.mediaUrl && /\.(mp4|mov|avi|mkv|webm)$/i.test(part.mediaUrl))
+  );
+}
+
+function isAudioPart(part: ChatMessagePartVo): boolean {
+  const mime = part.mimeType ?? '';
+  return (
+    mime.startsWith('audio/') || Boolean(part.mediaUrl && /\.(mp3|wav|flac|m4a|aac)$/i.test(part.mediaUrl))
+  );
+}
+
+function getPartIcon(part: ChatMessagePartVo) {
+  if (isImagePart(part)) return Picture;
+  if (isVideoPart(part)) return VideoCamera;
+  if (isAudioPart(part)) return Headset;
+  return Document;
+}
+
+function getPartLabel(part: ChatMessagePartVo): string {
+  if (isImagePart(part)) return '图片';
+  if (isVideoPart(part)) return '视频';
+  if (isAudioPart(part)) return '音频';
+  return '文件';
+}
+
+function getPartSrc(part: ChatMessagePartVo): string {
+  return part.mediaUrl ?? part.contentText ?? '';
+}
 </script>
 
 <template>
@@ -52,12 +94,45 @@ const {
           <span v-if="formattedTime" class="bubble-time">{{ formattedTime }}</span>
         </div>
       </header>
+
+      <!-- 附件区域：图片等媒体附件在上方 -->
+      <div v-if="props.parts && props.parts.length > 0" class="bubble-parts">
+        <template v-for="part in props.parts" :key="part.partIndex">
+          <!-- 图片 -->
+          <div v-if="isImagePart(part)" class="part-image-wrap">
+            <el-image
+              class="part-image"
+              :src="getPartSrc(part)"
+              :preview-src-list="[getPartSrc(part)]"
+              fit="cover"
+              :preview-teleported="true"
+            />
+          </div>
+          <!-- 视频 -->
+          <div v-else-if="isVideoPart(part)" class="part-media-wrap">
+            <video class="part-media" :src="getPartSrc(part)" controls />
+          </div>
+          <!-- 音频 -->
+          <div v-else-if="isAudioPart(part)" class="part-media-wrap">
+            <audio class="part-media" :src="getPartSrc(part)" controls />
+          </div>
+          <!-- 其他文件 -->
+          <div v-else class="part-file">
+            <el-icon class="part-file__icon"><component :is="getPartIcon(part)" /></el-icon>
+            <span class="part-file__label">{{ getPartLabel(part) }}</span>
+            <a v-if="getPartSrc(part)" :href="getPartSrc(part)" target="_blank" class="part-file__link" download>
+              下载
+            </a>
+          </div>
+        </template>
+      </div>
+
       <div class="bubble">
         <span v-if="showAssistantStreamingPlaceholder" class="streaming-hint">正在回复中…</span>
         <div
           v-if="!showAssistantStreamingPlaceholder"
           class="markdown-body"
-          :key="`${props.messageId}-${props.content.length}`"
+          :key="`${props.messageId}-${props.content.length}-${props.streaming ? 1 : 0}`"
           v-html="renderedHtml"
           @click="handleMarkdownClick"
         />

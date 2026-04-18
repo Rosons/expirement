@@ -15,6 +15,7 @@ import {
   type SendLifecyclePayload,
   type SendResultPayload,
 } from './workspace';
+import type { PendingAttachment } from '../../types/chat';
 type ChatComposerExpose = {
   focus: () => void;
   adjustHeight: () => void;
@@ -36,6 +37,8 @@ const props = withDefaults(
     fixedSessionChatId?: string;
     /** 历史为空时插入的本地客服欢迎语（不请求后端） */
     localWelcomeAssistantMessage?: string;
+    /** 是否启用附件上传功能 */
+    enableAttachment?: boolean;
   }>(),
   {
     showConversationSidebar: true,
@@ -49,6 +52,7 @@ const props = withDefaults(
     composerPlaceholder: '输入你的问题，Enter 发送，Shift+Enter 换行',
     fixedSessionChatId: '',
     localWelcomeAssistantMessage: '',
+    enableAttachment: false,
   },
 );
 const emit = defineEmits<{
@@ -58,6 +62,7 @@ const emit = defineEmits<{
 }>();
 
 const draft = ref('');
+const attachmentMode = ref(false);
 const chatBodyRef = ref<HTMLElement | null>(null);
 const composerRef = ref<ChatComposerExpose | null>(null);
 const consumedInitialMessage = ref(false);
@@ -168,14 +173,14 @@ function startNewConversation(): void {
   });
 }
 
-async function handleSendMessage(): Promise<void> {
+async function handleComposerSend(files: PendingAttachment[]): Promise<void> {
   const userInput = draft.value.trim();
-  if (!userInput || isSending.value) {
+  if (isSending.value) {
     return;
   }
   draft.value = '';
   nextTick(adjustComposerHeight);
-  await sendMessageContent(userInput, 'user');
+  await sendMessageContent(userInput, 'user', files);
 }
 
 async function handleResendMessage(content: string): Promise<void> {
@@ -212,6 +217,15 @@ watch(
     }
   },
   { flush: 'post' },
+);
+
+watch(
+  () => attachmentMode.value,
+  (val) => {
+    if (val) {
+      nextTick(() => scrollToBottom({ immediate: true, retryCount: 2, force: true }));
+    }
+  },
 );
 
 watch(
@@ -269,6 +283,8 @@ watch(
 
       <ChatComposer
         ref="composerRef"
+        v-if="enableAttachment"
+        v-model:attachment-mode="attachmentMode"
         :draft="draft"
         :is-sending="isSending"
         :can-send="canSend"
@@ -277,8 +293,25 @@ watch(
         :total-message-count="totalMessageCount"
         :draft-length="draftLength"
         :request-status="requestStatus"
+        :show-attachment-toggle="enableAttachment"
         @update:draft="handleDraftUpdate"
-        @send="handleSendMessage"
+        @send="handleComposerSend"
+        @stop="stopGenerating"
+      />
+      <ChatComposer
+        v-else
+        ref="composerRef"
+        :draft="draft"
+        :is-sending="isSending"
+        :can-send="canSend"
+        :composer-placeholder="composerPlaceholder"
+        :short-chat-id="shortChatId"
+        :total-message-count="totalMessageCount"
+        :draft-length="draftLength"
+        :request-status="requestStatus"
+        :show-attachment-toggle="false"
+        @update:draft="handleDraftUpdate"
+        @send="handleComposerSend"
         @stop="stopGenerating"
       />
     </section>

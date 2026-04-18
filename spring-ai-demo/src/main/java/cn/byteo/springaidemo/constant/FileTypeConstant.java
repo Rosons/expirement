@@ -13,7 +13,7 @@ import java.util.List;
 public class FileTypeConstant {
 
     /**
-     * 文件上传允许的扩展名（白名单）
+     * 知识库上传允许的扩展名（白名单）
      */
     public static final List<String> ALLOWED_FILE_EXTENSIONS = Arrays.asList(
             "pdf", "txt", "md", "log", "doc", "docx", "xls", "xlsx", "ppt", "pptx"

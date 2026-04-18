@@ -31,6 +31,7 @@ CREATE TABLE IF NOT EXISTS chat_file (
     original_filename  VARCHAR(512) NOT NULL,
     stored_filename    VARCHAR(256) NOT NULL,
     storage_path       VARCHAR(1024) NOT NULL,
+    file_type          VARCHAR(255) NOT NULL,
     content_type       VARCHAR(255),
     file_size          BIGINT       NOT NULL,
     metadata           JSONB        NOT NULL DEFAULT '{}'::JSONB,
@@ -45,6 +46,7 @@ COMMENT ON COLUMN chat_file.conversation_id IS '关联会话ID（逻辑关联，
 COMMENT ON COLUMN chat_file.original_filename IS '用户上传时原始文件名';
 COMMENT ON COLUMN chat_file.stored_filename IS '落盘后的文件名';
 COMMENT ON COLUMN chat_file.storage_path IS '相对存储根目录路径';
+COMMENT ON COLUMN chat_file.file_type IS '上传文件类型 knowledge-知识库文件、normal-普通文件';
 COMMENT ON COLUMN chat_file.content_type IS '文件 MIME 类型';
 COMMENT ON COLUMN chat_file.file_size IS '文件大小（字节）';
 COMMENT ON COLUMN chat_file.metadata IS '扩展元数据（预留向量化状态等）';

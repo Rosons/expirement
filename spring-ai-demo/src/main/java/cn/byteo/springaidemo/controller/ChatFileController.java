@@ -1,6 +1,7 @@
 package cn.byteo.springaidemo.controller;
 
 import cn.byteo.springaidemo.chat.entity.ChatFile;
+import cn.byteo.springaidemo.chat.enums.ChatFileType;
 import cn.byteo.springaidemo.chat.service.ChatFileService;
 import cn.byteo.springaidemo.chat.vo.ChatFileListVo;
 import cn.byteo.springaidemo.chat.vo.ChatFileUploadVo;
@@ -36,18 +37,21 @@ public class ChatFileController {
     private final ChatFileService chatFileService;
 
     /**
-     * 按会话列出已上传文件（不含已逻辑删除记录）。
+     * 按会话列出已上传的知识库文件（不含已逻辑删除记录）。
      */
     @GetMapping(params = "conversationId")
-    public ApiResponse<List<ChatFileListVo>> listByConversation(@RequestParam(value = "conversationId") String conversationId) {
-        return ApiResponse.ok(chatFileService.listByConversationId(conversationId));
+    public ApiResponse<List<ChatFileListVo>> listKnowledgeByConversation(@RequestParam(value = "conversationId") String conversationId) {
+        return ApiResponse.ok(chatFileService.listByConversationId(conversationId, ChatFileType.KNOWLEDGE));
     }
 
+    /**
+     * 按会话ID和类型上传文件，并将文件进行向量化存储
+     */
     @PostMapping("/upload")
     public ApiResponse<ChatFileUploadVo> upload(@RequestParam(value = "conversationId") String conversationId,
                                                 @RequestParam(value = "type", required = false) String type,
                                                 @RequestParam("file") MultipartFile file) {
-        return ApiResponse.ok(chatFileService.upload(conversationId, file.getResource(), type));
+        return ApiResponse.ok(chatFileService.upload(conversationId, type, file.getResource(), true));
     }
 
     /** 下载已存储文件（二进制流）。 */

@@ -1,5 +1,6 @@
 package cn.byteo.springaidemo.chat.entity;
 
+import cn.byteo.springaidemo.chat.enums.ChatFileType;
 import cn.byteo.springaidemo.common.entity.BaseEntity;
 import cn.byteo.springaidemo.common.handler.PostgreSqlJsonbTypeHandler;
 import com.baomidou.mybatisplus.annotation.IdType;
@@ -33,6 +34,8 @@ public class ChatFile extends BaseEntity {
     private String storagePath;
 
     private String contentType;
+
+    private ChatFileType fileType;
 
     private Long fileSize;
 

@@ -1,6 +1,7 @@
 package cn.byteo.springaidemo.chat.service.impl;
 
 import cn.byteo.springaidemo.chat.entity.ChatFile;
+import cn.byteo.springaidemo.chat.enums.ChatFileType;
 import cn.byteo.springaidemo.chat.mapper.ChatFileMapper;
 import cn.byteo.springaidemo.chat.service.ChatConversationManageService;
 import cn.byteo.springaidemo.chat.service.ChatFileService;
@@ -9,6 +10,8 @@ import cn.byteo.springaidemo.chat.vo.ChatFileUploadVo;
 import cn.byteo.springaidemo.constant.FileTypeConstant;
 import cn.byteo.springaidemo.constant.SystemConstant;
 import cn.byteo.springaidemo.exception.BusinessException;
+import cn.byteo.springaidemo.util.FileExtensionMimeTypeUtils;
+import cn.byteo.springaidemo.util.NormalFileUtils;
 import com.baomidou.mybatisplus.core.toolkit.Wrappers;
 import jakarta.annotation.PostConstruct;
 import jakarta.annotation.PreDestroy;
@@ -55,6 +58,8 @@ public class LocalChatFileService implements ChatFileService {
 
     private static final String VECTOR_STORE_DATA_FILENAME = "simple-vector-store.json";
 
+    private static final String VECTOR_STORE_DIR_NAME = "vector-store";
+
     private final ChatFileMapper chatFileMapper;
 
     private final ChatConversationManageService chatConversationManageService;
@@ -87,7 +92,8 @@ public class LocalChatFileService implements ChatFileService {
 
     @Override
     @Transactional
-    public ChatFileUploadVo upload(String conversationId, Resource resource, String ensureConversationType) {
+    public ChatFileUploadVo upload(String conversationId, String ensureConversationType,
+                                   Resource resource, boolean isVectorStore) {
         String normalizedConversationId = normalizeConversationId(conversationId);
         if (!StringUtils.hasText(normalizedConversationId)) {
             throw new BusinessException("conversationId 不能为空");
@@ -103,8 +109,8 @@ public class LocalChatFileService implements ChatFileService {
                 : "unknown";
 
         String extension = resolveExtension(originalName);
-        // 判断文件类型是否允许上传
-        if (!FileTypeConstant.ALLOWED_FILE_EXTENSIONS.contains(extension)) {
+        // 如果需要向量化存储，需要判断文件类型是否允许上传，目前只支持特定文件类型
+        if (isVectorStore && !FileTypeConstant.ALLOWED_FILE_EXTENSIONS.contains(extension)) {
             throw new BusinessException("不支持的文件类型");
         }
 
@@ -113,7 +119,9 @@ public class LocalChatFileService implements ChatFileService {
 
         Path root = resolveStorageRoot();
         String safeConversationId = sanitizePathSegment(normalizedConversationId);
-        Path targetDir = root.resolve(safeConversationId).normalize();
+        // 向量化存储的文件，添加个目录标识
+        Path targetDir = isVectorStore ? root.resolve(safeConversationId)
+                .resolve(VECTOR_STORE_DIR_NAME).normalize() : root.resolve(safeConversationId).normalize();
         Path targetFile = targetDir.resolve(storedFilename).normalize();
 
         if (!targetFile.startsWith(root)) {
@@ -134,32 +142,41 @@ public class LocalChatFileService implements ChatFileService {
         entity.setConversationId(normalizedConversationId);
         entity.setOriginalFilename(originalName);
         entity.setStoredFilename(storedFilename);
-        entity.setStoragePath(root.relativize(targetFile).toString().replace('\\', '/'));
-        entity.setContentType(resolveContentType(resource, targetFile));
+        ChatFileType chatFileType = isVectorStore ? ChatFileType.KNOWLEDGE : ChatFileType.NORMAL;
+        entity.setFileType(chatFileType);
+        // 存储的相对路径
+        String storagePath = root.relativize(targetFile).toString().replace('\\', '/');
+        entity.setStoragePath(storagePath);
+        // 统一通过工具获取文件mimeType
+        entity.setContentType(FileExtensionMimeTypeUtils.getMimeTypeFromExtension(originalName));
         entity.setFileSize(resolveFileSize(resource, targetFile));
         entity.setMetadata(Map.of());
         chatFileMapper.insert(entity);
 
-        // 读取文件内容并分片
-        List<Document> documents;
-        try {
-            documents = readAndSplitDocument(resource, extension);
-        } catch (IOException e) {
-            throw new BusinessException(HttpStatus.INTERNAL_SERVER_ERROR, "解析并切片文件失败");
+        // 向量化存储文件
+        if (isVectorStore) {
+            // 读取文件内容并分片
+            List<Document> documents;
+            try {
+                documents = readAndSplitDocument(resource, extension);
+            } catch (IOException e) {
+                throw new BusinessException(HttpStatus.INTERNAL_SERVER_ERROR, "解析并切片文件失败");
+            }
+            // 添加自定义属性
+            for (Document document : documents) {
+                Map<String, Object> metadata = document.getMetadata();
+                metadata.put(SystemConstant.VECTOR_CHAT_ID, conversationId);
+                metadata.put(SystemConstant.VECTOR_FILE_ID, fileId);
+            }
+            // 文件向量化存储
+            vectorStore.add(documents);
         }
-        // 添加自定义属性
-        for (Document document : documents) {
-            Map<String, Object> metadata = document.getMetadata();
-            metadata.put(SystemConstant.VECTOR_CHAT_ID, conversationId);
-            metadata.put(SystemConstant.VECTOR_FILE_ID, fileId);
-        }
-        // 文件向量化存储
-        vectorStore.add(documents);
 
         return ChatFileUploadVo.builder()
                 .fileId(fileId)
                 .conversationId(normalizedConversationId)
                 .originalFilename(originalName)
+                .storagePath(storagePath)
                 .contentType(entity.getContentType())
                 .fileSize(entity.getFileSize())
                 .downloadUrl("/ai/files/download/" + fileId)
@@ -194,7 +211,7 @@ public class LocalChatFileService implements ChatFileService {
     }
 
     @Override
-    public List<ChatFileListVo> listByConversationId(String conversationId) {
+    public List<ChatFileListVo> listByConversationId(String conversationId, ChatFileType chatFileType) {
         String normalizedConversationId = normalizeConversationId(conversationId);
         if (!StringUtils.hasText(normalizedConversationId)) {
             throw new BusinessException("conversationId 不能为空");
@@ -202,6 +219,7 @@ public class LocalChatFileService implements ChatFileService {
         List<ChatFile> rows = chatFileMapper.selectList(
                 Wrappers.<ChatFile>lambdaQuery()
                         .eq(ChatFile::getConversationId, normalizedConversationId)
+                        .eq(ChatFile::getFileType, chatFileType)
                         .orderByDesc(ChatFile::getCreatedAt));
         return rows.stream().map(LocalChatFileService::toListVo).toList();
     }
@@ -370,33 +388,8 @@ public class LocalChatFileService implements ChatFileService {
      * 读取并分块文档
      */
     private List<Document> readAndSplitDocument(Resource resource, String fileType) throws IOException {
-        List<Document> documents;
-
-        if (FileTypeConstant.isPdf(fileType)) {
-            // 解析pdf
-            log.info("使用 pdf-reader 读取 PDF 文档: {}", fileType);
-            PagePdfDocumentReader reader = new PagePdfDocumentReader(resource,
-                    PdfDocumentReaderConfig.builder()
-                            .withPageExtractedTextFormatter(ExtractedTextFormatter.defaults())
-                            .build());
-            documents = reader.read();
-
-        } else if (FileTypeConstant.isOfficeDocument(fileType)) {
-            // Office 文档读取（使用 Tika）
-            log.info("使用 Tika 读取 Office 文档: {}", fileType);
-            TikaDocumentReader tikaReader = new TikaDocumentReader(resource);
-            documents = tikaReader.get();
-
-        } else if (FileTypeConstant.isPlainText(fileType)) {
-            // 纯文本文档读取
-            log.info("纯文本读取文档: {}", fileType);
-            String content = StreamUtils.copyToString(resource.getInputStream(), StandardCharsets.UTF_8);
-            documents = List.of(new Document(content));
-
-        } else {
-            throw new IllegalArgumentException("不支持的文件类型: " + fileType);
-        }
-
+        // 读取文件内容
+        List<Document> documents = NormalFileUtils.readDocuments(resource, fileType);
         // 文本分块（使用配置的分块参数）
         log.info("开始文档分片: fileType={}, sourceDocumentCount={}, chunkSize={}, minChunkSizeChars={}, minChunkLengthToEmbed={}, maxNumChunks={}, keepSeparator={}",
                 fileType, documents.size(), splitterChunkSize, splitterMinChunkSizeChars, splitterMinChunkLengthToEmbed, splitterMaxNumChunks, splitterKeepSeparator);

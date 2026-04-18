@@ -1,4 +1,4 @@
-import type { ConversationListItem, UiChatMessage } from '../../../../types/chat';
+import type { ChatMessagePartVo, ConversationListItem, PendingAttachment, UiChatMessage } from '../../../../types/chat';
 
 function createMessageId(): string {
   if (typeof crypto !== 'undefined' && typeof crypto.randomUUID === 'function') {
@@ -18,6 +18,24 @@ export function buildUiMessage(role: UiChatMessage['role'], content = '', stream
     content,
     createdAt: Date.now(),
     streaming,
+  };
+}
+
+export function buildUserMessageWithParts(content: string, files: PendingAttachment[]): UiChatMessage {
+  const parts: ChatMessagePartVo[] = files.map((f, index) => ({
+    partIndex: index,
+    partType: f.file.type || 'application/octet-stream',
+    contentText: f.file.name,
+    mediaUrl: f.localUrl,
+    mimeType: f.file.type || null,
+  }));
+  return {
+    id: createMessageId(),
+    role: 'user',
+    content,
+    createdAt: Date.now(),
+    streaming: false,
+    parts,
   };
 }
 

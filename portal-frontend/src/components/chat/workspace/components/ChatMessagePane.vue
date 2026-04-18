@@ -52,6 +52,7 @@ function setBodyElement(element: Element | ComponentPublicInstance | null): void
       :streaming="message.streaming"
       :enable-copy-action="showMessageCopyAction"
       :enable-resend-action="showMessageResendAction"
+      :parts="message.parts"
       @resend-message="emit('resendMessage', $event)"
     />
   </div>

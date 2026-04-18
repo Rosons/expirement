@@ -6,6 +6,8 @@ export interface UiChatMessage {
   content: string;
   createdAt: number;
   streaming?: boolean;
+  /** 消息附件，与后端 ChatMessagePartVo 对齐 */
+  parts?: ChatMessagePartVo[];
 }
 
 /** 与后端 ChatHistoryQueryRequest 对齐（v1 / v2 共用查询参数；前端历史接口固定传 order=desc） */
@@ -21,6 +23,8 @@ export interface ChatStreamQueryRequest {
   chatId: string;
   message: string;
   type?: string;
+  /** 随消息一起发送的附件文件列表 */
+  files?: File[];
 }
 
 /**
@@ -70,4 +74,11 @@ export interface ChatMessageHistoryPageVo {
   size: number;
   current: number;
   pages: number;
+}
+
+/** 发送消息时，编辑器中待发送的本地文件 */
+export interface PendingAttachment {
+  id: string;
+  file: File;
+  localUrl: string;
 }

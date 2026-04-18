@@ -2,19 +2,31 @@ package cn.byteo.springaidemo.chat.memory;
 
 import cn.byteo.springaidemo.chat.entity.ChatConversation;
 import cn.byteo.springaidemo.chat.entity.ChatMessage;
+import cn.byteo.springaidemo.chat.entity.ChatMessagePart;
+import cn.byteo.springaidemo.chat.enums.ChatMessagePartType;
 import cn.byteo.springaidemo.chat.enums.ChatMessageRole;
 import cn.byteo.springaidemo.chat.mapper.ChatConversationMapper;
 import cn.byteo.springaidemo.chat.mapper.ChatMessageMapper;
+import cn.byteo.springaidemo.chat.mapper.ChatMessagePartMapper;
+import cn.byteo.springaidemo.chat.service.ChatFileService;
+import cn.byteo.springaidemo.chat.vo.ChatFileUploadVo;
+import com.alibaba.fastjson.JSONObject;
+import com.alibaba.fastjson.serializer.SerializerFeature;
 import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
 import com.baomidou.mybatisplus.core.conditions.update.LambdaUpdateWrapper;
+import com.google.gson.JsonObject;
 import lombok.RequiredArgsConstructor;
 import org.springframework.ai.chat.memory.ChatMemory;
 import org.springframework.ai.chat.messages.AssistantMessage;
 import org.springframework.ai.chat.messages.Message;
 import org.springframework.ai.chat.messages.SystemMessage;
 import org.springframework.ai.chat.messages.UserMessage;
+import org.springframework.ai.content.Media;
+import org.springframework.core.io.ByteArrayResource;
+import org.springframework.core.io.FileSystemResource;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.util.CollectionUtils;
+import org.springframework.util.ResourceUtils;
 import org.springframework.util.StringUtils;
 
 import java.time.LocalDateTime;
@@ -43,6 +55,8 @@ public class PersistentChatMemory implements ChatMemory {
 
     private final ChatConversationMapper chatConversationMapper;
     private final ChatMessageMapper chatMessageMapper;
+    private final ChatMessagePartMapper chatMessagePartMapper;
+    private final ChatFileService chatFileService;
 
     @Override
     @Transactional
@@ -61,9 +75,53 @@ public class PersistentChatMemory implements ChatMemory {
 
         int nextSeq = findNextSeq(normalizedConversationId);
         for (Message message : validMessages) {
-            chatMessageMapper.insert(toEntity(normalizedConversationId, nextSeq++, message));
+            ChatMessage entity = toEntity(normalizedConversationId, nextSeq++, message);
+            chatMessageMapper.insert(entity);
+            // 处理并存储用户消息中附带的媒体信息
+            processAndStoreMedias(conversationId, entity.getId(), message);
         }
+        // 更新会话最后活跃时间
         touchConversation(normalizedConversationId);
+    }
+
+    private void processAndStoreMedias(String conversationId, Long messageId, Message message) {
+        // 目前存储，只处理用户的媒体消息
+        if (message instanceof UserMessage userMessage) {
+            List<Media> medias = userMessage.getMedia();
+            if (CollectionUtils.isEmpty(medias)) {
+                return;
+            }
+            int partIndex = 1;
+            for (Media media : medias) {
+                ChatMessagePart chatMessagePart = new ChatMessagePart();
+                chatMessagePart.setMessageId(messageId);
+                chatMessagePart.setPartIndex(partIndex++);
+                // 媒体mime类型
+                String mimeType = media.getMimeType().toString();
+                chatMessagePart.setMimeType(mimeType);
+                // 附件的业务类型
+                chatMessagePart.setPartType(ChatMessagePartType.fromMimeType(mimeType));
+                // 附件暂时使用url统一表示
+                chatMessagePart.setContentText(null);
+                // 上传附件，并设置文件的相对路径
+                byte[] dataAsByteArray = media.getDataAsByteArray();
+                ByteArrayResource resource = new ByteArrayResource(dataAsByteArray) {
+                    @Override
+                    public String getFilename() {
+                        return media.getName();
+                    }
+                };
+                ChatFileUploadVo fileUploadVo = chatFileService.upload(conversationId, null,
+                        resource, false);
+                // 文件的下载链接
+                String downloadUrl = fileUploadVo.getDownloadUrl();
+                chatMessagePart.setMediaUrl(downloadUrl);
+                // 存储额外元信息
+                chatMessagePart.setPayload(fileUploadVo.toMap());
+                // 存储附件信息
+                chatMessagePartMapper.insert(chatMessagePart);
+            }
+        }
     }
 
     @Override

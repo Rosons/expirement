@@ -55,6 +55,8 @@ app:
       max-num-chunks: 10000
       # 是否保留标点和分隔符，通用检索建议开启
       keep-separator: true
+  # 多模态模型名称
+  multimodal-model-name: qwen3.5-omni-flash
 
 mybatis-plus:
   configuration:

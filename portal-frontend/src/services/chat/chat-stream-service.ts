@@ -42,127 +42,13 @@ function findFirstNonEmptyText(value: unknown, depth = 0): string {
   return '';
 }
 
-function extractTextFromSseData(data: string): string {
-  const trimmedForControl = data.trim();
-  if (!trimmedForControl || trimmedForControl === '[DONE]') {
-    return '';
-  }
-
-  try {
-    const parsed = JSON.parse(data) as unknown;
-    const extracted = findFirstNonEmptyText(parsed);
-    if (extracted) {
-      return extracted;
-    }
-  } catch {
-    return data;
-  }
-
-  return data;
-}
-
-export async function streamChatResponse(
-  query: ChatStreamQueryRequest,
+async function processStreamBody(
+  reader: ReadableStreamDefaultReader<Uint8Array>,
+  decoder: TextDecoder,
   onChunk: (chunk: string) => void,
-  signal?: AbortSignal,
+  signal: AbortSignal | undefined,
+  shouldParseAsSse: boolean,
 ): Promise<void> {
-  try {
-    await runStreamChatResponse(query, onChunk, getChatStreamUrl(), signal);
-  } catch (error) {
-    if (error instanceof DOMException && error.name === 'AbortError') {
-      throw error;
-    }
-    notifyRequestFailure(error);
-    throw error;
-  }
-}
-
-export async function streamChatResponseByUrl(
-  query: ChatStreamQueryRequest,
-  streamUrl: string,
-  onChunk: (chunk: string) => void,
-  signal?: AbortSignal,
-): Promise<void> {
-  try {
-    await runStreamChatResponse(query, onChunk, streamUrl, signal);
-  } catch (error) {
-    if (error instanceof DOMException && error.name === 'AbortError') {
-      throw error;
-    }
-    notifyRequestFailure(error);
-    throw error;
-  }
-}
-
-export async function streamKnowledgeChatResponse(
-  query: ChatStreamQueryRequest,
-  onChunk: (chunk: string) => void,
-  signal?: AbortSignal,
-): Promise<void> {
-  try {
-    await runStreamChatResponse(query, onChunk, getKnowledgeChatStreamUrl(), signal);
-  } catch (error) {
-    if (error instanceof DOMException && error.name === 'AbortError') {
-      throw error;
-    }
-    notifyRequestFailure(error);
-    throw error;
-  }
-}
-
-export async function streamCustomerChatResponse(
-  query: ChatStreamQueryRequest,
-  onChunk: (chunk: string) => void,
-  signal?: AbortSignal,
-): Promise<void> {
-  try {
-    await runStreamChatResponse(query, onChunk, getCustomerChatApiRootUrl(), signal);
-  } catch (error) {
-    if (error instanceof DOMException && error.name === 'AbortError') {
-      throw error;
-    }
-    notifyRequestFailure(error);
-    throw error;
-  }
-}
-
-async function runStreamChatResponse(
-  query: ChatStreamQueryRequest,
-  onChunk: (chunk: string) => void,
-  streamUrl: string,
-  signal?: AbortSignal,
-): Promise<void> {
-  const params = new URLSearchParams({ chatId: query.chatId, message: query.message });
-  if (query.type?.trim()) {
-    params.set('type', query.type.trim());
-  }
-  const response = await fetch(`${streamUrl}?${params.toString()}`, {
-    method: 'GET',
-    headers: {
-      Accept: 'text/plain, text/html, text/event-stream',
-    },
-    cache: 'no-store',
-    signal,
-  });
-
-  if (!response.ok) {
-    const responseText = await response.text().catch(() => '');
-    throw new Error(`发送消息失败：${response.status}${responseText ? `，响应：${responseText.slice(0, 120)}` : ''}`);
-  }
-
-  if (!response.body) {
-    const text = await response.text();
-    if (text) {
-      onChunk(text);
-      return;
-    }
-    throw new Error('服务端未返回可读取内容');
-  }
-
-  const reader = response.body.getReader();
-  const decoder = new TextDecoder('utf-8');
-  const contentType = response.headers.get('content-type')?.toLowerCase() ?? '';
-  let shouldParseAsSse = contentType.includes('text/event-stream');
   let lineBuffer = '';
   let sseDataLines: string[] = [];
 
@@ -256,4 +142,181 @@ async function runStreamChatResponse(
   } else if (tailText) {
     onChunk(tailText);
   }
+}
+
+function extractTextFromSseData(data: string): string {
+  if (data === '') {
+    return '';
+  }
+  const trimmedAll = data.trim();
+  if (trimmedAll === '[DONE]') {
+    return '';
+  }
+  // 旧逻辑用 trim 判空：仅含换行（或 trim 后为空的 \n / \r\n 分片）会被当成空串丢弃，流式拼接后段落粘成一行；
+  // 落库与历史接口仍是完整正文，故刷新后格式正常。
+  if (!trimmedAll && !/[\r\n]/.test(data)) {
+    return '';
+  }
+
+  try {
+    const parsed = JSON.parse(data) as unknown;
+    const extracted = findFirstNonEmptyText(parsed);
+    if (extracted) {
+      return extracted;
+    }
+  } catch {
+    return data;
+  }
+
+  return data;
+}
+
+export async function streamChatResponse(
+  query: ChatStreamQueryRequest,
+  onChunk: (chunk: string) => void,
+  signal?: AbortSignal,
+): Promise<void> {
+  try {
+    await runStreamChatResponse(query, onChunk, getChatStreamUrl(), signal);
+  } catch (error) {
+    if (error instanceof DOMException && error.name === 'AbortError') {
+      throw error;
+    }
+    notifyRequestFailure(error);
+    throw error;
+  }
+}
+
+export async function streamChatResponseByUrl(
+  query: ChatStreamQueryRequest,
+  streamUrl: string,
+  onChunk: (chunk: string) => void,
+  signal?: AbortSignal,
+): Promise<void> {
+  try {
+    await runStreamChatResponse(query, onChunk, streamUrl, signal);
+  } catch (error) {
+    if (error instanceof DOMException && error.name === 'AbortError') {
+      throw error;
+    }
+    notifyRequestFailure(error);
+    throw error;
+  }
+}
+
+export async function streamKnowledgeChatResponse(
+  query: ChatStreamQueryRequest,
+  onChunk: (chunk: string) => void,
+  signal?: AbortSignal,
+): Promise<void> {
+  try {
+    await runStreamChatResponse(query, onChunk, getKnowledgeChatStreamUrl(), signal);
+  } catch (error) {
+    if (error instanceof DOMException && error.name === 'AbortError') {
+      throw error;
+    }
+    notifyRequestFailure(error);
+    throw error;
+  }
+}
+
+export async function streamCustomerChatResponse(
+  query: ChatStreamQueryRequest,
+  onChunk: (chunk: string) => void,
+  signal?: AbortSignal,
+): Promise<void> {
+  try {
+    await runStreamChatResponse(query, onChunk, getCustomerChatApiRootUrl(), signal);
+  } catch (error) {
+    if (error instanceof DOMException && error.name === 'AbortError') {
+      throw error;
+    }
+    notifyRequestFailure(error);
+    throw error;
+  }
+}
+
+async function runStreamChatResponse(
+  query: ChatStreamQueryRequest,
+  onChunk: (chunk: string) => void,
+  streamUrl: string,
+  signal?: AbortSignal,
+): Promise<void> {
+  const hasFiles = query.files && query.files.length > 0;
+
+  if (hasFiles) {
+    const formData = new FormData();
+    formData.append('chatId', query.chatId);
+    formData.append('message', query.message);
+    if (query.type?.trim()) {
+      formData.append('type', query.type.trim());
+    }
+    query.files!.forEach((file) => {
+      formData.append('files', file);
+    });
+
+    const response = await fetch(streamUrl, {
+      method: 'POST',
+      body: formData,
+      headers: {
+        Accept: 'text/plain, text/html, text/event-stream',
+      },
+      cache: 'no-store',
+      signal,
+    });
+
+    if (!response.ok) {
+      const responseText = await response.text().catch(() => '');
+      throw new Error(`发送消息失败：${response.status}${responseText ? `，响应：${responseText.slice(0, 120)}` : ''}`);
+    }
+
+    if (!response.body) {
+      const text = await response.text();
+      if (text) {
+        onChunk(text);
+        return;
+      }
+      throw new Error('服务端未返回可读取内容');
+    }
+
+    const reader = response.body.getReader();
+    const decoder = new TextDecoder('utf-8');
+    const contentType = response.headers.get('content-type')?.toLowerCase() ?? '';
+    const shouldParseAsSse = contentType.includes('text/event-stream');
+    await processStreamBody(reader, decoder, onChunk, signal, shouldParseAsSse);
+    return;
+  }
+
+  const params = new URLSearchParams({ chatId: query.chatId, message: query.message });
+  if (query.type?.trim()) {
+    params.set('type', query.type.trim());
+  }
+  const response = await fetch(`${streamUrl}?${params.toString()}`, {
+    method: 'GET',
+    headers: {
+      Accept: 'text/plain, text/html, text/event-stream',
+    },
+    cache: 'no-store',
+    signal,
+  });
+
+  if (!response.ok) {
+    const responseText = await response.text().catch(() => '');
+    throw new Error(`发送消息失败：${response.status}${responseText ? `，响应：${responseText.slice(0, 120)}` : ''}`);
+  }
+
+  if (!response.body) {
+    const text = await response.text();
+    if (text) {
+      onChunk(text);
+      return;
+    }
+    throw new Error('服务端未返回可读取内容');
+  }
+
+  const reader = response.body.getReader();
+  const decoder = new TextDecoder('utf-8');
+  const contentType = response.headers.get('content-type')?.toLowerCase() ?? '';
+  const shouldParseAsSse = contentType.includes('text/event-stream');
+  await processStreamBody(reader, decoder, onChunk, signal, shouldParseAsSse);
 }

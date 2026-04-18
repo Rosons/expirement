@@ -1,5 +1,5 @@
 import { ElMessage } from 'element-plus';
-import { computed } from 'vue';
+import { computed, toRef } from 'vue';
 import type { ChatRole } from '../../../../types/chat';
 import { renderSafeMarkdown } from '../../../../utils/markdown';
 import { copyTextToClipboard } from '../helpers/clipboard';
@@ -15,44 +15,55 @@ type MessageBubbleProps = {
 };
 
 export function useMessageBubble(props: MessageBubbleProps, resend: (content: string) => void) {
-  const renderedHtml = computed(() => renderSafeMarkdown(props.content));
-  const canCopyMessage = computed(() => props.enableCopyAction && props.content.trim().length > 0);
+  const content = toRef(props, 'content');
+  const streaming = toRef(props, 'streaming');
+  const role = toRef(props, 'role');
+  const createdAt = toRef(props, 'createdAt');
+  const enableCopyAction = toRef(props, 'enableCopyAction');
+  const enableResendAction = toRef(props, 'enableResendAction');
+
+  const renderedHtml = computed(() => {
+    // 依赖 streaming：流式结束瞬间内容与最后一次分片相同，但仍需重新跑 Markdown 解析与 v-html 更新
+    void streaming.value;
+    return renderSafeMarkdown(content.value);
+  });
+  const canCopyMessage = computed(() => enableCopyAction.value && content.value.trim().length > 0);
   const canResendMessage = computed(
-    () => props.enableResendAction && props.role === 'user' && !props.streaming && props.content.trim().length > 0,
+    () => enableResendAction.value && role.value === 'user' && !streaming.value && content.value.trim().length > 0,
   );
 
   const roleLabel = computed(() => {
-    if (props.role === 'user') {
+    if (role.value === 'user') {
       return '用户';
     }
-    if (props.role === 'assistant') {
+    if (role.value === 'assistant') {
       return 'AI 助手';
     }
     return '系统提示';
   });
 
   const avatarLabel = computed(() => {
-    if (props.role === 'user') {
+    if (role.value === 'user') {
       return '你';
     }
-    if (props.role === 'assistant') {
+    if (role.value === 'assistant') {
       return 'AI';
     }
     return '系';
   });
 
   const formattedTime = computed(() => {
-    if (!Number.isFinite(props.createdAt)) {
+    if (!Number.isFinite(createdAt.value)) {
       return '';
     }
     return new Intl.DateTimeFormat('zh-CN', {
       hour: '2-digit',
       minute: '2-digit',
-    }).format(props.createdAt);
+    }).format(createdAt.value);
   });
 
   const showAssistantStreamingPlaceholder = computed(
-    () => props.role === 'assistant' && Boolean(props.streaming) && props.content.trim().length === 0,
+    () => role.value === 'assistant' && Boolean(streaming.value) && content.value.trim().length === 0,
   );
 
   async function handleMarkdownClick(event: MouseEvent): Promise<void> {
@@ -84,7 +95,7 @@ export function useMessageBubble(props: MessageBubbleProps, resend: (content: st
       return;
     }
     try {
-      await copyTextToClipboard(props.content);
+      await copyTextToClipboard(content.value);
       ElMessage.success('消息已复制');
     } catch (error) {
       console.error(error);
@@ -96,7 +107,7 @@ export function useMessageBubble(props: MessageBubbleProps, resend: (content: st
     if (!canResendMessage.value) {
       return;
     }
-    resend(props.content);
+    resend(content.value);
   }
 
   return {
