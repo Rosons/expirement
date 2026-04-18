@@ -57,14 +57,14 @@ export interface ChatMessageHistoryVo {
   createdAt?: string | null;
 }
 
-/** 与后端 ChatMessagePartVo 对齐 */
+/** 与后端 ChatMessagePartVo 对齐；附件展示/下载名使用 payload.originalFilename，勿用 contentText 当文件名 */
 export interface ChatMessagePartVo {
   partIndex?: number;
   partType?: string;
   contentText?: string | null;
   mediaUrl?: string | null;
   mimeType?: string | null;
-  payload?: Record<string, unknown>;
+  payload?: Record<string, unknown> & { originalFilename?: string };
 }
 
 /** 与后端 ChatMessageHistoryPageVo 对齐 */

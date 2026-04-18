@@ -68,15 +68,52 @@ function getPartIcon(part: ChatMessagePartVo) {
   return Document;
 }
 
+function getPartOriginalFilename(part: ChatMessagePartVo): string {
+  const v = part.payload?.originalFilename;
+  if (typeof v === 'string' && v.trim()) {
+    return v.trim();
+  }
+  return '';
+}
+
+function getPartDisplayName(part: ChatMessagePartVo): string {
+  const name = getPartOriginalFilename(part);
+  if (name) {
+    return name;
+  }
+  return '文件';
+}
+
 function getPartLabel(part: ChatMessagePartVo): string {
   if (isImagePart(part)) return '图片';
   if (isVideoPart(part)) return '视频';
   if (isAudioPart(part)) return '音频';
-  return '文件';
+  return getPartDisplayName(part);
 }
 
 function getPartSrc(part: ChatMessagePartVo): string {
   return part.mediaUrl ?? part.contentText ?? '';
+}
+
+/** 下载文件名：与后端一致，使用 payload.originalFilename；blob 链接需配合 download 属性 */
+function getPartDownloadFilename(part: ChatMessagePartVo): string {
+  const name = getPartOriginalFilename(part);
+  if (name) {
+    return name;
+  }
+  const src = getPartSrc(part);
+  if (src) {
+    try {
+      const path = new URL(src, typeof window !== 'undefined' ? window.location.href : undefined).pathname;
+      const seg = path.split('/').pop();
+      if (seg) {
+        return decodeURIComponent(seg);
+      }
+    } catch {
+      /* ignore */
+    }
+  }
+  return 'download';
 }
 </script>
 
@@ -120,7 +157,13 @@ function getPartSrc(part: ChatMessagePartVo): string {
           <div v-else class="part-file">
             <el-icon class="part-file__icon"><component :is="getPartIcon(part)" /></el-icon>
             <span class="part-file__label">{{ getPartLabel(part) }}</span>
-            <a v-if="getPartSrc(part)" :href="getPartSrc(part)" target="_blank" class="part-file__link" download>
+            <a
+              v-if="getPartSrc(part)"
+              :href="getPartSrc(part)"
+              target="_blank"
+              class="part-file__link"
+              :download="getPartDownloadFilename(part)"
+            >
               下载
             </a>
           </div>

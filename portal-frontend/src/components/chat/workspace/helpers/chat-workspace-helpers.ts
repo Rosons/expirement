@@ -25,9 +25,9 @@ export function buildUserMessageWithParts(content: string, files: PendingAttachm
   const parts: ChatMessagePartVo[] = files.map((f, index) => ({
     partIndex: index,
     partType: f.file.type || 'application/octet-stream',
-    contentText: f.file.name,
     mediaUrl: f.localUrl,
     mimeType: f.file.type || null,
+    payload: { originalFilename: f.file.name },
   }));
   return {
     id: createMessageId(),
