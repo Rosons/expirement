@@ -1,7 +1,8 @@
 spring:
   datasource:
     driver-class-name: org.postgresql.Driver
-    url: jdbc:postgresql://${DB_HOST:localhost}:${DB_PORT:5432}/spring_ai_demo?characterEncoding=utf8&serverTimezone=Asia/Shanghai
+    # DB_HOST / DB_PORT / DB_NAME：与 Docker Compose、本地环境变量一致
+    url: jdbc:postgresql://${DB_HOST:localhost}:${DB_PORT:5432}/${DB_NAME:spring_ai_demo}?characterEncoding=utf8&serverTimezone=Asia/Shanghai
     username: ${DB_USERNAME:postgres}
     password: ${DB_PASSWORD:password}
 
@@ -20,21 +21,22 @@ spring:
       client:
         enabled: false
     openai:
-      base-url: https://dashscope.aliyuncs.com/compatible-mode
-      api-key: sk-020127f24b3742b5bb3094b98dead8bb
+      # 对应环境变量：SPRING_AI_OPENAI_BASE_URL、SPRING_AI_OPENAI_API_KEY 等（Spring Boot 亦支持 relaxed binding）
+      base-url: ${SPRING_AI_OPENAI_BASE_URL:https://dashscope.aliyuncs.com/compatible-mode}
+      api-key: ${SPRING_AI_OPENAI_API_KEY:}
       chat:
         options:
-          model: glm-4.7
+          model: ${SPRING_AI_OPENAI_CHAT_OPTIONS_MODEL:glm-4.7}
       embedding:
         options:
-          dimensions: 1024
-          model: text-embedding-v3
+          dimensions: ${SPRING_AI_OPENAI_EMBEDDING_OPTIONS_DIMENSIONS:1024}
+          model: ${SPRING_AI_OPENAI_EMBEDDING_OPTIONS_MODEL:text-embedding-v3}
   servlet:
     multipart:
       max-file-size: 100MB
       max-request-size: 100MB
 server:
-  port: 8080
+  port: ${SERVER_PORT:8080}
 
 app:
   file-storage:
@@ -55,16 +57,18 @@ app:
       max-num-chunks: 10000
       # 是否保留标点和分隔符，通用检索建议开启
       keep-separator: true
-  # 多模态模型名称
-  multimodal-model-name: qwen3.5-omni-flash
+  # 多模态模型名称（环境变量 APP_MULTIMODAL_MODEL_NAME）
+  multimodal-model-name: ${APP_MULTIMODAL_MODEL_NAME:qwen3.5-omni-flash}
 
   # 知识库对话（QuestionAnswerAdvisor / RAG）向量检索时的检索请求参数
   knowledge-chat:
     rag:
       # 相似度下限：低于该阈值的向量片段不会作为上下文注入；调高可减少无关内容，调低可增加召回
-      similarity-threshold: 0.5
+      # 环境变量：APP_KNOWLEDGE_CHAT_RAG_SIMILARITY_THRESHOLD
+      similarity-threshold: ${APP_KNOWLEDGE_CHAT_RAG_SIMILARITY_THRESHOLD:0.5}
       # 返回与查询最相近的片段条数上限；越大上下文越丰富，但噪声与 token 消耗也可能增加
-      top-k: 3
+      # 环境变量：APP_KNOWLEDGE_CHAT_RAG_TOP_K
+      top-k: ${APP_KNOWLEDGE_CHAT_RAG_TOP_K:3}
 
 mybatis-plus:
   configuration:

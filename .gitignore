@@ -33,3 +33,9 @@ build/
 .vscode/
 .cursor/
 data/
+
+# Docker deploy secrets
+.env
+
+# Output of scripts/package-docker-deploy.*
+deploy-packages/

@@ -1,0 +1,17 @@
+# Git / IDE
+.git
+.gitignore
+**/.idea
+**/.vscode
+
+# 构建产物与依赖（镜像内会重新构建）
+**/target
+**/node_modules
+**/dist
+
+# 本地数据（由 compose 挂载 ./data，不应打进镜像）
+data
+
+# 文档与杂项
+**/*.md
+.cursor

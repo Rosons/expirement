@@ -1,0 +1,92 @@
+# 一键部署：在项目根目录执行
+#   copy .env.example .env   （Windows 可用 copy）
+#   docker compose up -d --build
+#
+# 数据目录：与 compose 文件同级的 ./data（见各服务 volumes）
+
+name: expirement
+
+services:
+  postgres:
+    image: postgres:${POSTGRES_IMAGE_TAG:-16-alpine}
+    container_name: expirement-postgres
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: ${DB_USERNAME:-postgres}
+      POSTGRES_PASSWORD: ${DB_PASSWORD:-password}
+      POSTGRES_DB: ${DB_NAME:-spring_ai_demo}
+    volumes:
+      - ./data/postgres:/var/lib/postgresql/data
+    healthcheck:
+      # 使用镜像内环境变量，避免与宿主机 .env 解析不一致
+      test: ["CMD-SHELL", "pg_isready -U \"$$POSTGRES_USER\" -d \"$$POSTGRES_DB\" || exit 1"]
+      interval: 5s
+      timeout: 5s
+      retries: 12
+    networks:
+      - app-net
+    ports:
+      # 仅宿主机调试或外部工具连库时使用；生产建议注释掉整段 ports
+      - "${POSTGRES_PUBLISH_PORT:-5432}:5432"
+
+  backend:
+    build:
+      context: .
+      dockerfile: spring-ai-demo/Dockerfile
+    container_name: expirement-backend
+    restart: unless-stopped
+    depends_on:
+      postgres:
+        condition: service_healthy
+    environment:
+      # 容器内固定 8080，与 portal-frontend/nginx 中反代一致；仅宿主机端口用 BACKEND_HTTP_PORT 调整
+      SERVER_PORT: "8080"
+      # 与 application.yaml 中 spring.datasource 占位符一致
+      DB_HOST: postgres
+      DB_PORT: "5432"
+      DB_NAME: ${DB_NAME:-spring_ai_demo}
+      DB_USERNAME: ${DB_USERNAME:-postgres}
+      DB_PASSWORD: ${DB_PASSWORD:-password}
+      # 容器内绝对路径，对应下方 volumes 挂载
+      APP_FILE_STORAGE_ROOT: /data/chat-files
+      APP_VECTOR_STORE_ROOT: /data/vector-store
+      # Spring AI OpenAI 兼容接口（如阿里云 DashScope 兼容模式）
+      SPRING_AI_OPENAI_API_KEY: ${SPRING_AI_OPENAI_API_KEY}
+      SPRING_AI_OPENAI_BASE_URL: ${SPRING_AI_OPENAI_BASE_URL:-https://dashscope.aliyuncs.com/compatible-mode}
+      SPRING_AI_OPENAI_CHAT_OPTIONS_MODEL: ${SPRING_AI_OPENAI_CHAT_OPTIONS_MODEL:-glm-4.7}
+      SPRING_AI_OPENAI_EMBEDDING_OPTIONS_MODEL: ${SPRING_AI_OPENAI_EMBEDDING_OPTIONS_MODEL:-text-embedding-v3}
+      SPRING_AI_OPENAI_EMBEDDING_OPTIONS_DIMENSIONS: ${SPRING_AI_OPENAI_EMBEDDING_OPTIONS_DIMENSIONS:-1024}
+      APP_MULTIMODAL_MODEL_NAME: ${APP_MULTIMODAL_MODEL_NAME:-qwen3.5-omni-flash}
+      # 对应 application.yaml：app.knowledge-chat.rag.*
+      APP_KNOWLEDGE_CHAT_RAG_SIMILARITY_THRESHOLD: ${APP_KNOWLEDGE_CHAT_RAG_SIMILARITY_THRESHOLD:-0.5}
+      APP_KNOWLEDGE_CHAT_RAG_TOP_K: ${APP_KNOWLEDGE_CHAT_RAG_TOP_K:-3}
+      JAVA_TOOL_OPTIONS: ${JAVA_TOOL_OPTIONS:-}
+    volumes:
+      - ./data/chat-files:/data/chat-files
+      - ./data/vector-store:/data/vector-store
+    networks:
+      - app-net
+    ports:
+      - "${BACKEND_HTTP_PORT:-8080}:8080"
+
+  frontend:
+    build:
+      context: .
+      dockerfile: portal-frontend/Dockerfile
+      args:
+        VITE_API_BASE: ${VITE_API_BASE:-}
+        VITE_CHAT_API_VERSION: ${VITE_CHAT_API_VERSION:-v2}
+        VITE_CHAT_HISTORY_PAGE: ${VITE_CHAT_HISTORY_PAGE:-1}
+        VITE_CHAT_HISTORY_PAGE_SIZE: ${VITE_CHAT_HISTORY_PAGE_SIZE:-10}
+    container_name: expirement-frontend
+    restart: unless-stopped
+    depends_on:
+      - backend
+    networks:
+      - app-net
+    ports:
+      - "${FRONTEND_HTTP_PORT:-80}:80"
+
+networks:
+  app-net:
+    driver: bridge
