@@ -50,6 +50,14 @@ public class ModelConfiguration {
     @Value("${app.multimodal-model-name:}")
     private String modelName;
 
+    /** 知识库 RAG：向量相似度下限，低于则不入上下文 */
+    @Value("${app.knowledge-chat.rag.similarity-threshold:0.5}")
+    private double knowledgeRagSimilarityThreshold;
+
+    /** 知识库 RAG：向量检索返回条数上限 */
+    @Value("${app.knowledge-chat.rag.top-k:3}")
+    private int knowledgeRagTopK;
+
     @Bean
     ChatClient chatClient(OpenAiChatModel openAiChatModel) {
         return ChatClient.builder(openAiChatModel)
@@ -123,8 +131,8 @@ public class ModelConfiguration {
                         QuestionAnswerAdvisor.builder(vectorStore)
                                 .searchRequest(SearchRequest
                                         .builder()
-                                        .similarityThreshold(0.5)
-                                        .topK(3)
+                                        .similarityThreshold(knowledgeRagSimilarityThreshold)
+                                        .topK(knowledgeRagTopK)
                                         .build())
                                 .build()
                 )

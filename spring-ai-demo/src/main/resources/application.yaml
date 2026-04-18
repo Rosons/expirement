@@ -58,6 +58,14 @@ app:
   # 多模态模型名称
   multimodal-model-name: qwen3.5-omni-flash
 
+  # 知识库对话（QuestionAnswerAdvisor / RAG）向量检索时的检索请求参数
+  knowledge-chat:
+    rag:
+      # 相似度下限：低于该阈值的向量片段不会作为上下文注入；调高可减少无关内容，调低可增加召回
+      similarity-threshold: 0.5
+      # 返回与查询最相近的片段条数上限；越大上下文越丰富，但噪声与 token 消耗也可能增加
+      top-k: 3
+
 mybatis-plus:
   configuration:
     map-underscore-to-camel-case: true
