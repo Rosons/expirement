@@ -3,6 +3,7 @@ package cn.byteo.springaidemo.controller;
 import java.util.ArrayList;
 import java.util.List;
 
+import cn.byteo.springaidemo.constant.FileTypeConstant;
 import org.springframework.ai.chat.client.ChatClient;
 import org.springframework.ai.chat.memory.ChatMemory;
 import org.springframework.ai.content.Media;
@@ -86,6 +87,19 @@ public class ChatV2Controller {
                     .build());
         }
         Media[] medias = mediaList.toArray(Media[]::new);
+        // 获取上传的文件名称（前端限制了一次消息只能上传同一类型的文件）
+        String originalFilename = files.get(0).getOriginalFilename();
+        String fileType = FileExtensionMimeTypeUtils.normalizeExtension(originalFilename);
+        // 文档文件
+        if (FileTypeConstant.ALLOWED_FILE_EXTENSIONS.contains(fileType)) {
+            // 文档文件，直接使用纯文本聊天模型进行分析回答，不使用真正的多模态模型进行分析，节省token
+            // 纯文本聊天客户端中，文档Advisor(DocumentMediaInliningAdvisor)会将附件内容解析成文本，拼接到用户提示词中。
+            return chatClient.prompt()
+                    .advisors(p -> p.param(ChatMemory.CONVERSATION_ID, query.getChatId()))
+                    .user(p -> p.text(query.getMessage()).media(medias))
+                    .stream()
+                    .content();
+        }
         return multiModalChatClient.prompt()
                 .advisors(p -> p.param(ChatMemory.CONVERSATION_ID, query.getChatId()))
                 .user(p -> p.text(query.getMessage()).media(medias))

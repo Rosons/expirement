@@ -77,7 +77,8 @@ public class ModelConfiguration {
 
     @Bean
     ChatClient persistentMemoryChatClient(OpenAiChatModel openAiChatModel,
-                                @Qualifier(value = "persistentChatMemory") ChatMemory chatMemory) {
+                                @Qualifier(value = "persistentChatMemory") ChatMemory chatMemory,
+                                DocumentMediaInliningAdvisor documentMediaInliningAdvisor) {
         return ChatClient.builder(openAiChatModel)
                 // 这里可以配置默认的系统消息，或者其他全局参数
                 .defaultSystem(SystemConstant.SIMPLE_SYSTEM_PROMPT)
@@ -85,7 +86,9 @@ public class ModelConfiguration {
                         // 添加打印日志的Advisor，方便观察对话过程
                         new SimpleLoggerAdvisor(),
                         // 添加基于消息窗口的记忆Advisor，保持对话上下文
-                        MessageChatMemoryAdvisor.builder(chatMemory).build()
+                        MessageChatMemoryAdvisor.builder(chatMemory).build(),
+                        // 文档文件解析，拼接到用户问题中，发送给大模型
+                        documentMediaInliningAdvisor
                 )
                 .build();
     }
